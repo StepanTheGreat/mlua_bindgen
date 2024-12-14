@@ -1,18 +1,28 @@
-use mlua_bindgen::mlua_bindgen;
+use mlua_bindgen::{mlua_bindgen, UserDataTable};
 use mlua::Function;
 
 pub struct ResId {
-    id: u128
+    id: u64
 }
 
 #[mlua_bindgen]
 impl ResId {
     #[func]
-    fn new(_: &mlua::Lua) -> Self {
+    fn new(_: &mlua::Lua, with: u64) -> Self {
         Ok(Self {
-            id: 0
+            id: with
         })
     }
+
+    #[get]
+    fn id(_: &mlua::Lua, this: &Self) -> u64 {
+        Ok(this.id)
+    }
+}
+
+#[mlua_bindgen]
+fn new(_: &mlua::Lua) -> ResId {
+    Ok(ResId { id: 0 })
 }
 
 /// This function does pretty cool things!
@@ -62,8 +72,18 @@ impl Vector {
 
 #[test]
 fn main() {
-    let l = mlua::Lua::new();
-    let func = l.create_function(cool_fn).unwrap();
+    let lua = mlua::Lua::new();
+    let func = lua.create_function(cool_fn).unwrap();
     let res = func.call::<u32>((32, true)).unwrap();
     assert_eq!(res, 50);
+
+    ResId::register(&lua, &lua.globals()).unwrap();
+
+    let result = lua.load("
+        local res_id = ResId.new(50);
+        
+        print(res_id)
+        return res_id.id
+    ").eval::<u64>().unwrap();
+    assert_eq!(result, 50);
 }
