@@ -56,6 +56,9 @@ fn cool(_: &mlua::Lua, sm: u32, hi: bool) -> u32 {
     }
     false
 }
+```
+### Userdata
+```rust
 #[mlua_bindgen]
 impl MyType {
     #[get]
