@@ -15,7 +15,7 @@ pub fn expand_fn(input: ItemFn) -> TokenStream2 {
     let usr_arg_types = extracted.user_arg_types;
     let pub_param = match input.vis {
         Visibility::Public(_) => quote! {pub},
-        Visibility::Restricted(_) | Visibility::Inherited => quote! {}
+        Visibility::Restricted(_) | Visibility::Inherited => TokenStream2::new()
     };
 
     let lua_arg = extracted.trait_arg_names.remove(0);
