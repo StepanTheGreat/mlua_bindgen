@@ -45,11 +45,9 @@ pub fn expand_impl(input: ItemImpl) -> TokenStream2 {
             panic!("can't use impl items other than functions in export_lua macro")
         }
     }
-    let methods = methods.iter();
 
-    let table_impl = if funcs.len() == 0 { 
-        quote! {}
-    } else {
+    // Not implementing this trait if there are no functions.
+    let table_impl = if funcs.len() > 0 { 
         quote! {
             impl mlua_bindgen::UserDataTable for #impl_name {
                 fn as_table(lua: &mlua::Lua) -> mlua::Result<mlua::Table> {
@@ -58,11 +56,19 @@ pub fn expand_impl(input: ItemImpl) -> TokenStream2 {
     
                     Ok(table)
                 }
+
+                fn register(lua: &mlua::Lua, to: &mlua::Table) -> mlua::Result<()> {
+                    let table = Self::as_table(lua)?;
+                    to.set(stringify!(#impl_name), table)?;
+                    Ok(())
+                }
             }
         }
+    } else {
+        TokenStream2::new()
     };
 
-    quote! {
+    quote! {   
         impl mlua::UserData for #impl_name {
             fn add_fields<F: mlua::UserDataFields<Self>>(fields: &mut F) { 
                 #(#fields)*

@@ -170,17 +170,30 @@ pub fn parse_function(item: &ImplItemFn, kind: FuncKind) -> TokenStream2 {
     // We generate 2 different register codes, for 2 different mutability types.
     match kind {
         FuncKind::MethodMut => {
-            quote! { methods.add_method_mut::<_, (#(#usr_inp_tys),*), #return_ty>(stringify!(#name), |#(#trait_arg_names), *, (#(#usr_arg_names), *)| #block); }
+            quote! { 
+                methods.add_method_mut::<_, (#(#usr_inp_tys),*), #return_ty>(
+                    stringify!(#name), 
+                    |#(#trait_arg_names), *, (#(#usr_arg_names), *)| #block
+                ); 
+            }
         },
         FuncKind::Method => {
-            quote! { methods.add_method::<_, (#(#usr_inp_tys),*), #return_ty>(stringify!(#name), |#(#trait_arg_names), *, (#(#usr_arg_names), *)| #block); }
+            quote! { 
+                methods.add_method::<_, (#(#usr_inp_tys),*), #return_ty>(
+                    stringify!(#name), 
+                    |#(#trait_arg_names), *, (#(#usr_arg_names), *)| #block
+                ); 
+            }
         },
         FuncKind::Func => {
             quote! { 
-                table.set::<String, mlua::Function>(stringify!(#name), lua.create_function::<_,_,_>(|#(#trait_arg_names), *, (#(#usr_arg_names), *)| #block)?); 
+                table.set(
+                    stringify!(#name), 
+                    lua.create_function::<_, (#(#usr_inp_tys),*), #return_ty>(
+                        |#(#trait_arg_names), *, (#(#usr_arg_names), *)| #block
+                    )?
+                )?; 
             }
-
-            //quote! { methods.add_function::<_, (#(#usr_inp_tys),*), #return_ty>(stringify!(#name), |#(#trait_arg_names), *, (#(#usr_arg_names), *)| #block); }
         }
     }
 }
