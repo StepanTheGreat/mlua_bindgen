@@ -28,8 +28,8 @@ pub fn expand_enum(input: TokenStream2, item: ItemEnum) -> TokenStream2 {
     quote! {
         #input
 
-        impl mlua_bindgen::AsTable for #name {
-            fn as_table(lua: &mlua::Lua) -> mlua::Result<mlua::Table> {
+        impl ::mlua_bindgen::AsTable for #name {
+            fn as_table(lua: &::mlua::Lua) -> ::mlua::Result<::mlua::Table> {
                 let table = lua.create_table()?;
                 #(#variants)*
                 Ok(table)

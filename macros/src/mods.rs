@@ -1,7 +1,7 @@
 //! A confusing name, but it basically stands for "modules"
 
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use syn::{Item, ItemMod, Token};
+use syn::{Item, ItemMod};
 use quote::{quote, ToTokens};
 
 use crate::utils::{has_bindgen_attr, macro_error};
@@ -64,7 +64,7 @@ pub fn expand_mod(input: TokenStream2, item: ItemMod) -> TokenStream2 {
     quote! {
         #input
         
-        #vis_param fn #mod_name_module(lua: &mlua::Lua) -> mlua::Result<mlua::Table> {
+        #vis_param fn #mod_name_module(lua: &::mlua::Lua) -> ::mlua::Result<::mlua::Table> {
             let exports = lua.create_table()?;
             #(#exports)*
             Ok(exports)

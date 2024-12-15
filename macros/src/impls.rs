@@ -47,18 +47,18 @@ pub fn expand_impl(input: ItemImpl) -> TokenStream2 {
     }
 
     quote! {   
-        impl mlua::UserData for #impl_name {
-            fn add_fields<F: mlua::UserDataFields<Self>>(fields: &mut F) { 
+        impl ::mlua::UserData for #impl_name {
+            fn add_fields<F: ::mlua::UserDataFields<Self>>(fields: &mut F) { 
                 #(#fields)*
             }
     
-            fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) { 
+            fn add_methods<M: ::mlua::UserDataMethods<Self>>(methods: &mut M) { 
                 #(#methods)*
             }
         }
 
-        impl mlua_bindgen::AsTable for #impl_name {
-            fn as_table(lua: &mlua::Lua) -> mlua::Result<mlua::Table> {
+        impl ::mlua_bindgen::AsTable for #impl_name {
+            fn as_table(lua: &::mlua::Lua) -> ::mlua::Result<::mlua::Table> {
                 let table = lua.create_table()?;
                 #(#funcs)*
                 Ok(table)

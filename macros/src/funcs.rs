@@ -21,9 +21,9 @@ pub fn expand_fn(input: ItemFn) -> TokenStream2 {
     let lua_arg = extracted.trait_arg_names.remove(0);
 
     quote! {
-        #pub_param fn #name(#lua_arg, (#(#usr_arg_names), *): (#(#usr_arg_types), *)) -> mlua::Result<#return_ty> #block
+        #pub_param fn #name(#lua_arg, (#(#usr_arg_names), *): (#(#usr_arg_types), *)) -> ::mlua::Result<#return_ty> #block
 
-        const _:fn(&mlua::Lua) = |l| {
+        const _:fn(&::mlua::Lua) = |l| {
             _ = l.create_function(#name);
         };
     }
