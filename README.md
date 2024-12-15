@@ -135,6 +135,9 @@ lua.load('
 ## TODO
 - Heavy documentation. The entire library is poorly documented, so I think I should spend a fair amount
 of time on documenting everything even better.
+- Add support for different lua flavors provided by mlua (ie `luau`, `lua-jit` and so on). Currently this crate
+uses `luau` internally. (It may not influence anything, but adding these flavors as conditional choice could be
+better)
 - Bindings generation. This is supposed to analyze specified rust files for marked `mlua_bindgen` attributes,
 collect neccessary information (type names, documentation, variable names, variable types, ...) and transform
 into a bindings file that luau-lsp can understand.
