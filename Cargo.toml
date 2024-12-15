@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-mlua = {version="0.10.1", features=["luau"]}
+mlua = {version="0.10.1", features=["luau", "macros"]}
 macros = {path="./macros"}
 
+[dev-dependencies]
+mlua = {version="0.10.1", features=["luau", "macros"]}
