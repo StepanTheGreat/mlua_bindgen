@@ -4,7 +4,7 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use syn::{Item, ItemMod};
 use quote::{quote, ToTokens};
 
-use crate::utils::{has_bindgen_attr, macro_error};
+use crate::utils::{has_attr, macro_error, MLUA_BINDGEN_ATTR};
 
 pub fn expand_mod(input: TokenStream2, item: ItemMod) -> TokenStream2 {
     let mod_name = item.ident.to_token_stream();
@@ -14,7 +14,7 @@ pub fn expand_mod(input: TokenStream2, item: ItemMod) -> TokenStream2 {
         for mod_item in items {
             match mod_item {
                 Item::Fn(mod_fn) => {
-                    if !has_bindgen_attr(&mod_fn.attrs) { continue };
+                    if !has_attr(&mod_fn.attrs, MLUA_BINDGEN_ATTR) { continue };
                     let fn_name = mod_fn.sig.ident.to_token_stream();
                     exports.push(quote! {
                         exports.set(
@@ -24,7 +24,7 @@ pub fn expand_mod(input: TokenStream2, item: ItemMod) -> TokenStream2 {
                     });
                 },
                 Item::Enum(mod_enum) => {
-                    if !has_bindgen_attr(&mod_enum.attrs) { continue };
+                    if !has_attr(&mod_enum.attrs, MLUA_BINDGEN_ATTR) { continue };
                     let enum_name = mod_enum.ident.to_token_stream();
                     exports.push(quote! {
                         exports.set(
@@ -34,7 +34,7 @@ pub fn expand_mod(input: TokenStream2, item: ItemMod) -> TokenStream2 {
                     });
                 },
                 Item::Impl(mod_impl) => {
-                    if !has_bindgen_attr(&mod_impl.attrs) { continue };
+                    if !has_attr(&mod_impl.attrs, MLUA_BINDGEN_ATTR) { continue };
                     let impl_name = mod_impl.self_ty.to_token_stream();
                     exports.push(quote! {
                         exports.set(

@@ -2,9 +2,11 @@ use std::fmt::Display;
 
 use proc_macro2::TokenStream as TokenStream2;
 use syn::{
-    parse_quote, punctuated::Punctuated, token::Comma, Attribute, FnArg, ImplItemFn, ItemFn
+    parse_quote, punctuated::Punctuated, token::Comma, Attribute, FnArg, ImplItemFn, ItemFn, Visibility
 };
 use quote::{quote, ToTokens};
+
+pub const MLUA_BINDGEN_ATTR: &str = "mlua_bindgen";
 
 /// The same as `syn::Error::new_spanned(tokens, msg).to_compile_error()`, but simpler
 pub(crate) fn macro_error<T, U>(tokens: T, msg: U) -> TokenStream2
@@ -268,9 +270,9 @@ pub fn parse_field(item: &ImplItemFn, kind: FieldKind) -> TokenStream2 {
 /// Simply iterates over item attributes and checks if it has the [`mlua_bindgen`] attribute.
 /// 
 /// Only used inside modules
-pub fn has_bindgen_attr(attrs: &[Attribute]) -> bool {
+pub fn has_attr<'a>(attrs: &[Attribute], needed: &'a str) -> bool {
     for attr in attrs {
-        if attr.path().is_ident("mlua_bindgen") {
+        if attr.path().is_ident(needed) {
             return true
         }
     }
