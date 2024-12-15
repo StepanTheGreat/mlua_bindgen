@@ -1,4 +1,5 @@
 use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
 use syn::{
     parse_macro_input, Item
 };
@@ -6,9 +7,13 @@ use syn::{
 mod funcs;
 mod impls;
 mod utils;
+mod enums;
+mod mods;
 
 use funcs::expand_fn;
 use impls::expand_impl;
+use enums::expand_enum;
+use mods::expand_mod;
 
 /// # mlua_bindgen
 /// A generative attribute macro and also bindgen marker that can transform rust items (like impl blocks/functions) into mlua acceptible structures.
@@ -104,13 +109,21 @@ pub fn mlua_bindgen(_attr: TokenStream, input: TokenStream) -> TokenStream {
         let _input = input.clone();
         parse_macro_input!(_input as Item)
     };
+    // Some items require original input, so we keep it as well
+    let input = TokenStream2::from(input);
 
     match item {
         Item::Impl(item) => expand_impl(item),
         Item::Fn(item) => expand_fn(item),
+        Item::Enum(item) => expand_enum(input, item),
+        Item::Mod(item) => expand_mod(input, item),
+        Item::Struct(item) => syn::Error::new_spanned(
+            item, 
+            "If you want to implement a custom UserData type, you should use this macro on an impl block instead."
+        ).into_compile_error(),
         _ => syn::Error::new_spanned(
             item, 
-            "This macro can only be used on Impl blocks and Functions."
+            "This macro can only be used on Impl blocks, Functions, Enums and Mod blocks."
         ).into_compile_error()
     }.into()
 }

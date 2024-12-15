@@ -49,18 +49,11 @@ pub fn expand_impl(input: ItemImpl) -> TokenStream2 {
     // Not implementing this trait if there are no functions.
     let table_impl = if funcs.len() > 0 { 
         quote! {
-            impl mlua_bindgen::UserDataTable for #impl_name {
+            impl mlua_bindgen::AsTable for #impl_name {
                 fn as_table(lua: &mlua::Lua) -> mlua::Result<mlua::Table> {
                     let table = lua.create_table()?;
                     #(#funcs)*
-    
                     Ok(table)
-                }
-
-                fn register(lua: &mlua::Lua, to: &mlua::Table) -> mlua::Result<()> {
-                    let table = Self::as_table(lua)?;
-                    to.set(stringify!(#impl_name), table)?;
-                    Ok(())
                 }
             }
         }
