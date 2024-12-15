@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use syn::{parse, Item};
+use syn::{parse, Attribute, Item};
 
 mod funcs;
 mod impls;
@@ -106,7 +106,7 @@ use utils::macro_error;
 /// }
 /// ```
 #[proc_macro_attribute]
-pub fn mlua_bindgen(_attr: TokenStream, input: TokenStream) -> TokenStream {
+pub fn mlua_bindgen(attr: TokenStream, input: TokenStream) -> TokenStream {
     let item = parse::<Item>(input.clone()).expect("Failed to parse the item.");
     // Some items require original input, so we keep it as well
     let input = TokenStream2::from(input);
@@ -115,7 +115,7 @@ pub fn mlua_bindgen(_attr: TokenStream, input: TokenStream) -> TokenStream {
         Item::Impl(item) => expand_impl(item),
         Item::Fn(item) => expand_fn(item),
         Item::Enum(item) => expand_enum(input, item),
-        Item::Mod(item) => expand_mod(input, item),
+        Item::Mod(item) => expand_mod(attr, input, item),
         Item::Struct(item) => {
             macro_error(
                 item, 
