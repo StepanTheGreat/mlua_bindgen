@@ -1,10 +1,19 @@
+use std::fmt::Display;
+
 use proc_macro2::TokenStream as TokenStream2;
 use syn::{
-    parse_quote, punctuated::Punctuated, 
-    token::Comma, FnArg, 
-    ImplItemFn, ItemFn
+    parse_quote, punctuated::Punctuated, token::Comma, Attribute, FnArg, ImplItemFn, ItemFn
 };
 use quote::{quote, ToTokens};
+
+/// The same as `syn::Error::new_spanned(tokens, msg).to_compile_error()`, but simpler
+pub(crate) fn macro_error<T, U>(tokens: T, msg: U) -> TokenStream2
+where 
+    T: ToTokens,
+    U: Display 
+{
+    syn::Error::new_spanned(tokens, msg).to_compile_error()
+}
 
 pub struct ExtractedFunc {
     pub name: TokenStream2,
@@ -161,10 +170,10 @@ pub fn parse_function(item: &ImplItemFn, kind: FuncKind) -> TokenStream2 {
             FuncKind::MethodMut => ("mutable method", "&Lua, &mut Self")
         };
         let name_str = name.to_string();
-        return syn::Error::new_spanned(
+        return macro_error(
             name, 
             format!("Not enough arguments for {} \"{}\". It takes {} as its first {} arguments.", func_type, &name_str, args_fmt, exfunc.req_arg_count)
-        ).into_compile_error();
+        );
     }
 
     // We generate 2 different register codes, for 2 different mutability types.
@@ -219,26 +228,26 @@ pub fn parse_field(item: &ImplItemFn, kind: FieldKind) -> TokenStream2 {
             FieldKind::Getter => ("getter", "&Lua, &Self"),
             FieldKind::Setter => ("setter", "&Lua, &mut Self"),
         };
-        return syn::Error::new_spanned(
+        return macro_error(
             name, 
             format!("Not enough arguments for {} \"{}\". It takes {} as its first {} arguments.", field_type, &name_str, args_fmt, exfunc.req_arg_count)
-        ).into_compile_error();
+        );
     }
 
     // Here we're checking that the setter contains EXACTLY 1 argument, and the getter - 0
     if let FieldKind::Getter = kind  {
         if usr_arg_names.len() > 0 {
-            return syn::Error::new_spanned(
+            return macro_error(
                 name, 
                 format!("Getter {} can't contain more than 2 default arguments.", &name_str)
-            ).into_compile_error();
+            );
         }
     } else if let FieldKind::Setter = kind {
         if usr_arg_names.len() != 1 {
-            return syn::Error::new_spanned(
+            return macro_error(
                 name, 
                 format!("Setter {} should contain exactly 3 arguments (2 default and 1 user argument).", &name_str)
-            ).into_compile_error();
+            );
         }
     }
 
@@ -254,4 +263,16 @@ pub fn parse_field(item: &ImplItemFn, kind: FieldKind) -> TokenStream2 {
             }
         }
     }
+}
+
+/// Simply iterates over item attributes and checks if it has the [`mlua_bindgen`] attribute.
+/// 
+/// Only used inside modules
+pub fn has_bindgen_attr(attrs: &[Attribute]) -> bool {
+    for attr in attrs {
+        if attr.path().is_ident("mlua_bindgen") {
+            return true
+        }
+    }
+    false
 }

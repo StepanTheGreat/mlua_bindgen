@@ -1,8 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use syn::{
-    parse_macro_input, Item
-};
+use quote::quote;
+use syn::{parse, Item};
 
 mod funcs;
 mod impls;
@@ -14,6 +13,7 @@ use funcs::expand_fn;
 use impls::expand_impl;
 use enums::expand_enum;
 use mods::expand_mod;
+use utils::macro_error;
 
 /// # mlua_bindgen
 /// A generative attribute macro and also bindgen marker that can transform rust items (like impl blocks/functions) into mlua acceptible structures.
@@ -69,6 +69,9 @@ use mods::expand_mod;
 ///     }
 ///     false
 /// }
+/// ```
+/// ### UserData
+/// ```
 /// #[mlua_bindgen]
 /// impl MyType {
 ///     #[get]
@@ -105,10 +108,7 @@ use mods::expand_mod;
 /// ```
 #[proc_macro_attribute]
 pub fn mlua_bindgen(_attr: TokenStream, input: TokenStream) -> TokenStream {
-    let item = {
-        let _input = input.clone();
-        parse_macro_input!(_input as Item)
-    };
+    let item = parse::<Item>(input.clone()).expect("Failed to parse the item.");
     // Some items require original input, so we keep it as well
     let input = TokenStream2::from(input);
 
@@ -117,13 +117,18 @@ pub fn mlua_bindgen(_attr: TokenStream, input: TokenStream) -> TokenStream {
         Item::Fn(item) => expand_fn(item),
         Item::Enum(item) => expand_enum(input, item),
         Item::Mod(item) => expand_mod(input, item),
-        Item::Struct(item) => syn::Error::new_spanned(
-            item, 
-            "If you want to implement a custom UserData type, you should use this macro on an impl block instead."
-        ).into_compile_error(),
-        _ => syn::Error::new_spanned(
-            item, 
-            "This macro can only be used on Impl blocks, Functions, Enums and Mod blocks."
-        ).into_compile_error()
+        Item::Struct(item) => {
+            macro_error(
+                item, 
+                "If you want to implement a custom UserData type, you should put this macro on an impl block instead."
+            )
+        },
+        _ => {
+            macro_error(
+                item, 
+                "This macro can only be used on Impl blocks, Functions, Enums and Mod blocks."
+            )
+        }
     }.into()
 }
+

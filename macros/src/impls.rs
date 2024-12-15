@@ -35,31 +35,16 @@ pub fn expand_impl(input: ItemImpl) -> TokenStream2 {
                 } else if p.is_ident("set") {
                     fields.push(parse_field(&func, FieldKind::Setter));
                 } else {
-                    return syn::Error::new_spanned(
+                    return macro_error(
                         attr, 
                         "Incorrect attributes. Only method, method_mut, func or doc can be used"
-                    ).into_compile_error().into();
+                    );
                 }
             }
         } else {
             panic!("can't use impl items other than functions in export_lua macro")
         }
     }
-
-    // Not implementing this trait if there are no functions.
-    let table_impl = if funcs.len() > 0 { 
-        quote! {
-            impl mlua_bindgen::AsTable for #impl_name {
-                fn as_table(lua: &mlua::Lua) -> mlua::Result<mlua::Table> {
-                    let table = lua.create_table()?;
-                    #(#funcs)*
-                    Ok(table)
-                }
-            }
-        }
-    } else {
-        TokenStream2::new()
-    };
 
     quote! {   
         impl mlua::UserData for #impl_name {
@@ -72,6 +57,12 @@ pub fn expand_impl(input: ItemImpl) -> TokenStream2 {
             }
         }
 
-        #table_impl
+        impl mlua_bindgen::AsTable for #impl_name {
+            fn as_table(lua: &mlua::Lua) -> mlua::Result<mlua::Table> {
+                let table = lua.create_table()?;
+                #(#funcs)*
+                Ok(table)
+            }
+        }
     }.into()
 }
