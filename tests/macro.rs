@@ -1,5 +1,6 @@
-use mlua_bindgen::{mlua_bindgen, UserDataTable};
+use mlua_bindgen::{mlua_bindgen, AsTable};
 use mlua::Function;
+use mlua::FromLua;
 
 pub struct ResId {
     id: u64
@@ -70,6 +71,13 @@ impl Vector {
     }
 }
 
+// #[derive(FromLua)]
+#[mlua_bindgen]
+enum GreatEnum {
+    Var1,
+    Var2
+}
+
 #[test]
 fn main() {
     let lua = mlua::Lua::new();
@@ -77,12 +85,15 @@ fn main() {
     let res = func.call::<u32>((32, true)).unwrap();
     assert_eq!(res, 50);
 
-    ResId::register(&lua, &lua.globals()).unwrap();
+    lua.globals().set("ResId", ResId::as_table(&lua).unwrap()).unwrap();
+    lua.globals().set("GreatEnum", GreatEnum::as_table(&lua).unwrap()).unwrap();
+    // ResId::as_table(&lua, &lua.globals()).unwrap();
 
     let result = lua.load("
-        local res_id = ResId.new(50);
+        local res_id = ResId.new(50)
+        assert(GreatEnum.Var1, 0)
         
-        print(res_id)
+
         return res_id.id
     ").eval::<u64>().unwrap();
     assert_eq!(result, 50);
