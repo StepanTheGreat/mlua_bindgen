@@ -7,6 +7,16 @@ use mlua_bindgen::{mlua_bindgen, AsTable};
 static COUNTER: AtomicU32 = AtomicU32::new(5);
 
 #[mlua_bindgen]
+mod inner {
+    use macros::mlua_bindgen;
+
+    #[mlua_bindgen]
+    pub fn mul(_: &mlua::Lua, val1: f32, val2: f32) -> f32 {
+        Ok(val1*val2)
+    }
+}
+
+#[mlua_bindgen(include = [inner_module])]
 mod math {
     use std::sync::atomic::Ordering;
 
@@ -91,10 +101,13 @@ fn modules() -> mlua::Result<()> {
         -- Add value to the counter
         math.add_to_counter(38)
 
+        -- Using inner modules
+        local vec1_x = math.inner.mul(2, 5)
+
         -- Add 2 vectors together
         local Vector = math.Vector
         local vec1 = Vector.new(50, 35)
-        local vec2 = Vector.new(-3, 10)
+        local vec2 = Vector.new(-3, vec1_x)
         return vec1:add(vec2)
     ").eval::<Vector>()?;
     assert_eq!(res, Vector::new(47.0, 45.0));
