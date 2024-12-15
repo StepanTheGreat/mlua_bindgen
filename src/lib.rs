@@ -15,8 +15,3 @@ pub trait AsTable {
     /// Register this type to a specified table (could be for example the `lua.globals()` table)
     fn as_table(lua: &mlua::Lua) -> mlua::Result<mlua::Table>;
 }
-
-// A trait for constructing Lua modules. They can also contain other modules inside
-// pub trait LuaModule {
-//     fn get_module()
-// }
