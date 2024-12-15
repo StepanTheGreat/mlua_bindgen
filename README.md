@@ -138,6 +138,8 @@ of time on documenting everything even better.
 - Add support for different lua flavors provided by mlua (ie `luau`, `lua-jit` and so on). Currently this crate
 uses `luau` internally. (It may not influence anything, but adding these flavors as conditional choice could be
 better)
+- Add a `main` marker for the `mlua_bindgen` macro ( it will look something like `#[mlua_bindgen(main)]`), that will
+specify that the module is main (or that it's an entry-point module)
 - Bindings generation. This is supposed to analyze specified rust files for marked `mlua_bindgen` attributes,
 collect neccessary information (type names, documentation, variable names, variable types, ...) and transform
 into a bindings file that luau-lsp can understand.
