@@ -102,6 +102,16 @@ let lua_enum: Table = Colors::as_table(&lua)?;
 ### Modules
 ```rust
 #[mlua_bindgen]
+mod math {
+    #[mlua_bindgen]
+    pub fn mul(_: &mlua::Lua, val1: f32, val2: f32) -> f32 {
+        Ok(val1 * val2)
+    }
+}
+
+// You can nest modules. In this example, `math` will be a part of the `utils` module.
+// And yes, the same can be done for the `math` module as well, but this is not shown here for simplicity.
+#[mlua_bindgen(include = [math_module])]
 mod utils {
     #[mlua_bindgen]
     pub fn rust_hello(_: &mlua::Lua, who: String) {
@@ -123,17 +133,14 @@ lua.load('
 ```
 
 ## TODO
-- Module connection. Basically, creating modules is simple, but uniting them into larger modules (that 
-recursively contain other modules) is a bit difficult to think about. Especially since this tool then has
-to analyze these modules, and make bindings for them. Furthermore, it will be difficult to distinguish entry_point 
-modules and inner modules.
+- Heavy documentation. The entire library is poorly documented, so I think I should spend a fair amount
+of time on documenting everything even better.
 - Bindings generation. This is supposed to analyze specified rust files for marked `mlua_bindgen` attributes,
 collect neccessary information (type names, documentation, variable names, variable types, ...) and transform
 into a bindings file that luau-lsp can understand.
 
 ## Some issues
-1. You can't declare modules inside modules
-2. There's no way to connect modules, for now you have to manually connect them
+1. You can't declare modules inside modules (You can connect them though)
 
 ## Maintenance
 I'm making this crate for a personal project, so I can lose interest in developing/maintaining it at any time.
