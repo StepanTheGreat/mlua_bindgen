@@ -4,8 +4,8 @@ use quote::quote;
 
 use crate::utils::*;
 
-/// Expand functions. This doesn't overwrite anything, rather adds an IntoLua check for the function
-/// to ensure that it accepts and returns correct arguments.
+/// Expand functions. This will overwrite the original function and also add a static type check
+/// to ensure that it has proper arguments/return types (by mlua rules of course)
 pub fn expand_fn(input: ItemFn) -> TokenStream2 {
     let mut extracted = ExtractedFunc::from_func_info(&input, &FuncKind::Func);
     let name = extracted.name;
@@ -18,6 +18,9 @@ pub fn expand_fn(input: ItemFn) -> TokenStream2 {
         Visibility::Restricted(_) | Visibility::Inherited => TokenStream2::new()
     };
 
+    // We popped this value to use it separately as the first argument in the function.
+    // The mlua call convention looks like this: fn myfunc(lua: &Lua, (arg1, arg2): (Type1, Type2))
+    // Thus, we handle this case separately.
     let lua_arg = extracted.trait_arg_names.remove(0);
 
     quote! {

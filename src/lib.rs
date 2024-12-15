@@ -1,6 +1,6 @@
-pub use macros::*;
+pub use macros::mlua_bindgen;
 
-/// A trait that allows registering a type to a table. For example in Roblox, custom types can be
+/// A trait that allows converting a type to a table. For example in Roblox, custom "types" (userdata) can be
 /// registered to scopes using tables:
 /// 
 /// ```lua
@@ -12,6 +12,6 @@ pub use macros::*;
 /// Functions assigned to these tables are constructors. This makes it quite convenient to
 /// both document and also construct types.
 pub trait AsTable {
-    /// Register this type to a specified table (could be for example the `lua.globals()` table)
+    /// Converts this type to a lua table.
     fn as_table(lua: &mlua::Lua) -> mlua::Result<mlua::Table>;
 }

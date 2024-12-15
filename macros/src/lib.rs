@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use syn::{parse, Attribute, Item};
+use syn::{parse, Item};
 
 mod funcs;
 mod impls;
@@ -104,6 +104,57 @@ use utils::macro_error;
 ///        })
 ///    }
 /// }
+/// ```
+/// ### Enums
+/// ```
+/// #[mlua_bindgen]
+/// enum Colors {
+///     Red,
+///     Green,
+///     Blue
+/// }
+///
+/// // Will automatically implement AsTable
+/// let lua = Lua::new();
+/// let lua_enum: Table = Colors::as_table(&lua)?;
+/// // Now it's a lua table:
+/// // Colors = {
+/// //  Red = 0,
+/// //  Green = 1,
+/// //  Blue = 2,
+/// //}
+/// ```
+/// ### Modules
+/// ```rust
+/// #[mlua_bindgen]
+/// mod math {
+///     #[mlua_bindgen]
+///     pub fn mul(_: &mlua::Lua, val1: f32, val2: f32) -> f32 {
+///         Ok(val1 * val2)
+///     }
+/// }
+///
+// // You can nest modules. In this example, `math` will be a part of the `utils` module.
+// // And yes, the same can be done for the `math` module as well, but this is not shown here for simplicity.
+/// #[mlua_bindgen(include = [math_module])]
+/// mod utils {
+///     #[mlua_bindgen]
+///     pub fn rust_hello(_: &mlua::Lua, who: String) {
+///         println!("Hello to {who}");
+///         Ok(())
+///     }
+/// }
+///
+/// // This will automatically create a function that will 
+/// // return ALL module items and included modules in a table.  
+///
+/// lua.globals().set("utils", utils_module(&lua)?)?;
+/// lua.load('
+///     utils.rust_hello("Lua!")
+/// ').exec()?;
+/// //
+/// // >> Hello to Lua!
+/// //
 /// ```
 #[proc_macro_attribute]
 pub fn mlua_bindgen(attr: TokenStream, input: TokenStream) -> TokenStream {

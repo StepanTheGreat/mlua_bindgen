@@ -17,6 +17,9 @@ where
     syn::Error::new_spanned(tokens, msg).to_compile_error()
 }
 
+/// The absolute extracted function. The huge difference between this and [`FuncInfo`] is that the latter contains
+/// only the most basic information about the function. This contains additional information like user argument types,
+/// user argument names, and so on.
 pub struct ExtractedFunc {
     pub name: TokenStream2,
     pub block: TokenStream2,
@@ -44,6 +47,7 @@ pub struct FuncInfo<'a> {
     pub inputs: &'a Punctuated<FnArg, Comma>
 }
 
+/// A simple trait to simplify common function information extraction.
 pub trait ExtractFuncInfo {
     fn get_info<'a>(&'a self) -> FuncInfo<'a>;
 }
@@ -133,7 +137,7 @@ impl ExtractedFunc {
     }
 }
 
-/// A simple enum representing 3 possible combinations for Lua UserData functions
+/// A simple enum representing 3 possible function types. Basically the same explanation as with the [`FieldKind`]
 pub enum FuncKind {
     /// Lua method
     Method,
@@ -143,13 +147,19 @@ pub enum FuncKind {
     Func,
 }
 
-/// A simple enum representing 2 types of attribute methods for Lua custom UserData types
+/// An enum used to distinguish between setters and getters. When parsing these, the only way to distinguish
+/// them is to look at their attribute. Functions that parse fields can take this enum to apply custom rules:
+/// 
+/// For example, a getter can't contain any arguments, while a setter can only contain one.
 pub enum FieldKind {
     Getter,
     Setter
 }
 
-/// Parses the lua method and generates code to automatically register it for the custom UserData struct.
+/// Parse an impl function (be it function or method), and convert into registration code.
+/// 
+/// There's different registration code however. Methods (method and method_mut) are registered into
+/// [`mlua::UserData`], while functions are registered as table functions. For more, check [`mlua_bindgen::AsTable`])
 pub fn parse_function(item: &ImplItemFn, kind: FuncKind) -> TokenStream2 {
     let exfunc = ExtractedFunc::from_func_info(item, &kind);
 
@@ -178,7 +188,8 @@ pub fn parse_function(item: &ImplItemFn, kind: FuncKind) -> TokenStream2 {
         );
     }
 
-    // We generate 2 different register codes, for 2 different mutability types.
+    // We generate 3 different registration code types, 2 to be used with mlua::UserData.
+    // The other one to be used with [`AsTable`]
     match kind {
         FuncKind::MethodMut => {
             quote! { 
@@ -209,67 +220,10 @@ pub fn parse_function(item: &ImplItemFn, kind: FuncKind) -> TokenStream2 {
     }
 }
 
-pub fn parse_field(item: &ImplItemFn, kind: FieldKind) -> TokenStream2 {
-    // This is completely unsound, but for now that's our workaround
-    let exfunc = ExtractedFunc::from_func_info(item, &FuncKind::MethodMut);
-
-    let (usr_inp_tys, return_ty, name, trait_arg_names, usr_arg_names, block) = {
-        (
-            exfunc.user_arg_types,
-            exfunc.return_ty,
-            exfunc.name,
-            exfunc.trait_arg_names,
-            exfunc.user_arg_names,
-            exfunc.block
-        )
-    };
-    let name_str = name.to_string();
-
-    if trait_arg_names.len() < exfunc.req_arg_count {
-        let (field_type, args_fmt) = match kind {
-            FieldKind::Getter => ("getter", "&Lua, &Self"),
-            FieldKind::Setter => ("setter", "&Lua, &mut Self"),
-        };
-        return macro_error(
-            name, 
-            format!("Not enough arguments for {} \"{}\". It takes {} as its first {} arguments.", field_type, &name_str, args_fmt, exfunc.req_arg_count)
-        );
-    }
-
-    // Here we're checking that the setter contains EXACTLY 1 argument, and the getter - 0
-    if let FieldKind::Getter = kind  {
-        if usr_arg_names.len() > 0 {
-            return macro_error(
-                name, 
-                format!("Getter {} can't contain more than 2 default arguments.", &name_str)
-            );
-        }
-    } else if let FieldKind::Setter = kind {
-        if usr_arg_names.len() != 1 {
-            return macro_error(
-                name, 
-                format!("Setter {} should contain exactly 3 arguments (2 default and 1 user argument).", &name_str)
-            );
-        }
-    }
-
-    match kind {
-        FieldKind::Getter => {
-            quote! {
-                fields.add_field_method_get::<_, #return_ty>(stringify!(#name), |#(#trait_arg_names), *| #block);
-            }
-        },
-        FieldKind::Setter => {
-            quote! {
-                fields.add_field_method_set::<_, (#(#usr_inp_tys), *)>(stringify!(#name), |#(#trait_arg_names), *, (#(#usr_arg_names), *)| #block);
-            }
-        }
-    }
-}
-
-/// Simply iterates over item attributes and checks if it has the [`mlua_bindgen`] attribute.
+/// Simply iterates over attributes and checks whether at least one of the attributes matches against the
+/// supplied `needed` attribute string. 
 /// 
-/// Only used inside modules
+/// This is only used inside modules to check whether an item contains the `#[mlua_bindgen]` attribute.
 pub fn has_attr<'a>(attrs: &[Attribute], needed: &'a str) -> bool {
     for attr in attrs {
         if attr.path().is_ident(needed) {
@@ -279,7 +233,10 @@ pub fn has_attr<'a>(attrs: &[Attribute], needed: &'a str) -> bool {
     false
 }
 
-/// Convert a string into an ident token.
+/// Convert a string into an ident token. 
+/// 
+/// The reason it can't already be done via str.to_token_stream() is that 
+/// it will include the quote characters as well. This is workaround.
 pub fn str_to_ident<'a>(input: &'a str) -> TokenStream2 {
     syn::Ident::new(&input, Span::call_site()).to_token_stream()
 }

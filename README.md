@@ -121,7 +121,7 @@ mod utils {
 }
 
 // This will automatically create a function that will 
-// return ALL module items (besides for other modules) in a table.  
+// return ALL module items and included modules in a table.
 
 lua.globals().set("utils", utils_module(&lua)?)?;
 lua.load('

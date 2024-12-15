@@ -22,6 +22,7 @@ impl Parse for ModuleList {
             return Ok( ModuleList { included: vec![] });
         }
 
+        // Parse the `include` keyword
         let ident = input.parse::<Ident>()?;
         if ident.to_string() != "include" {
             return Err(syn::Error::new_spanned(
@@ -30,9 +31,14 @@ impl Parse for ModuleList {
             ));
         }
 
+        // Parse the `=` sign
         input.parse::<Token![=]>()?;
+
+        // Then we expect a list of expressions `[expr1, expr2]`
         let items = input.parse::<ExprArray>()?;
         
+        // Finally, we collect these expressions into the included vector.
+        // (Or to be precise, only the ones that are Path)
         let mut included: Vec<syn::Path> = Vec::new();
         for item in items.elems {
             if let Expr::Path(path) = item {
@@ -57,19 +63,32 @@ impl Parse for ModuleList {
 pub fn expand_mod(attrs: TokenStream, input: TokenStream2, item: ItemMod) -> TokenStream2 {
     let mod_name = item.ident.to_token_stream();
     let vis_param = item.vis.to_token_stream();
+
+    // This is the container for all registration code. I called it exports because... 
+    // it "exports" its inner items into a separate function.
     let mut exports: Vec<TokenStream2> = Vec::new();
 
+    // Get the list of included modules, or panic if it encountered an error while parsing.
+    // (An empty list is also accepted)
     let included = match parse2::<ModuleList>(attrs.into()) {
         Ok(included) => included,
         Err(err) => return err.to_compile_error()
     };
+
+    // To avoid stupidity, we will not accept repeated modules
     let mut already_added: HashSet<String> = HashSet::new();
+
     for fn_path in included.included {
         let path = fn_path.to_token_stream(); // Original path, what we need
-        let fn_name = fn_path.segments.last().map(|seg|  seg.ident.to_string()).unwrap();
+
         // Here we're getting the last segment in the path, and converting into token stream. It will be the module
         // name itself
+        let fn_name = fn_path.segments.last().map(|seg|  seg.ident.to_string()).unwrap();
 
+        // Now a bit of my personal stupidity, but we need to remove the `_module` suffix from the module function.
+        // It would be silly to call `math_module.mul(a, b)` inside Lua, so we remove that.
+        // And since _module itself isn't a banned word, we want to only remove the last appearance of it, so that
+        // `my_module_module` would transform into `my_module` and not into `my`. 
         let split_pos = match fn_name.rfind(MODULE_SUFFIX) {
             Some(pos) => pos,
             None => return syn::Error::new_spanned(
@@ -79,6 +98,7 @@ pub fn expand_mod(attrs: TokenStream, input: TokenStream2, item: ItemMod) -> Tok
         };
         let (left_fn_name, _) = fn_name.split_at(split_pos);
         let left_fn_name = str_to_ident(left_fn_name);
+
         exports.push(quote! {
             exports.set(
                 stringify!(#left_fn_name), 
@@ -86,6 +106,7 @@ pub fn expand_mod(attrs: TokenStream, input: TokenStream2, item: ItemMod) -> Tok
             )?;
         });
 
+        // Yep, give him an error. That's silly
         if !already_added.contains(&fn_name) {
             already_added.insert(fn_name);
         } else {
@@ -96,6 +117,8 @@ pub fn expand_mod(attrs: TokenStream, input: TokenStream2, item: ItemMod) -> Tok
         }
     }
 
+    // Now we iterate actual module items, and if they contain the [`MLUA_BINDGEN_ATTR`] attribute - 
+    // we add their module registration code to the exports.
     if let Some((_, items)) = item.content {
         for mod_item in items {
             match mod_item {
@@ -130,6 +153,7 @@ pub fn expand_mod(attrs: TokenStream, input: TokenStream2, item: ItemMod) -> Tok
                     });
                 },
                 Item::Mod(mod_mod) => {
+                    // I guess could be useful
                     return macro_error(
                         mod_mod, 
                         "Can't implement recursive modules. You should combine them separately for now."
@@ -142,9 +166,11 @@ pub fn expand_mod(attrs: TokenStream, input: TokenStream2, item: ItemMod) -> Tok
 
     // Here we're just concatenating original module name with a  `_module` suffix.
     // Ex: "math" => "math_module"
-    // This is useful for distinguishing modules and functions.
+    // I guess it helps distinguishing from modules and their module functions. For me at least
+    // it makes more sense.
     let mod_name_module = str_to_ident(&format!("{mod_name}{MODULE_SUFFIX}"));
 
+    // We keep the original input, and just add our module function on top.
     quote! {
         #input
         
