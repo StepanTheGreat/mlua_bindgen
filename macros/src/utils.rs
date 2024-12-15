@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
-use proc_macro2::TokenStream as TokenStream2;
+use proc_macro2::{Span, TokenStream as TokenStream2};
 use syn::{
-    parse_quote, punctuated::Punctuated, token::Comma, Attribute, FnArg, ImplItemFn, ItemFn, Visibility
+    parse_quote, punctuated::Punctuated, token::Comma, Attribute, FnArg, ImplItemFn, ItemFn
 };
 use quote::{quote, ToTokens};
 
@@ -277,4 +277,9 @@ pub fn has_attr<'a>(attrs: &[Attribute], needed: &'a str) -> bool {
         }
     }
     false
+}
+
+/// Convert a string into an ident token.
+pub fn str_to_ident<'a>(input: &'a str) -> TokenStream2 {
+    syn::Ident::new(&input, Span::call_site()).to_token_stream()
 }
