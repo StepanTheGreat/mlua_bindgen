@@ -91,12 +91,24 @@ pub fn expand_impl(input: ItemImpl) -> TokenStream2 {
     // Convert the generated code to a TokenStream
     for itm in input.items.iter() {
         if let ImplItem::Fn(ref func) = itm {
+            // I made a mistake myself, because of which I wasted almost half and hour, but basically, this macro doesn't
+            // disallow you from using normal functions with #[mlua_bindgen] impl blocks.
+            // 
+            // This isn't supposed to be an error, rather a tip for some that would stumble on this "unexpected" use.
+            // In any case, this variable basically describes if the attribute has any of the required attributes not to be considered
+            // "useless"
+            let mut has_required_attrs: bool = false;
+
             for attr in func.attrs.iter() {
                 let path: &syn::Path = attr.path();
-                if path.is_ident("doc") {
-                    // Ignore documentation
-                    continue;
-                } else if path.is_ident("method") {
+
+                // Ignore documentation
+                if path.is_ident("doc") { continue };
+
+                // Only assign true if the attribute is one of the specified or just incorrect.
+                has_required_attrs = true;
+
+                if path.is_ident("method") {
                     methods.push(parse_function(&func, FuncKind::Method));
                 } else if path.is_ident("method_mut") {
                     methods.push(parse_function(&func, FuncKind::MethodMut));
@@ -112,6 +124,13 @@ pub fn expand_impl(input: ItemImpl) -> TokenStream2 {
                         "Incorrect attributes. Only method, method_mut, func or doc can be used"
                     );
                 }
+            }
+
+            if !has_required_attrs {
+                return macro_error(
+                    itm, 
+                    "No attributes? If that's intentional - you should move this function to a normal impl block, since this macro ignores non-attributed functions."
+                );
             }
         } else {
             panic!("can't use impl items other than functions in export_lua macro")
