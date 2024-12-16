@@ -143,6 +143,7 @@ specify that the module is main (or that it's an entry-point module)
 - Bindings generation. This is supposed to analyze specified rust files for marked `mlua_bindgen` attributes,
 collect neccessary information (type names, documentation, variable names, variable types, ...) and transform
 into a bindings file that luau-lsp can understand.
+- Add a way to rename `mlua_bindgen` items; could be useful when dealing with API that has name collisions. For example: `#[mlua_bindgen(as = new_name)]`
 
 ## Some issues
 1. You can't declare modules inside modules (You can connect them though)
