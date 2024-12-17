@@ -158,7 +158,7 @@ use utils::macro_error;
 /// ```
 #[proc_macro_attribute]
 pub fn mlua_bindgen(attr: TokenStream, input: TokenStream) -> TokenStream {
-    let item = parse::<Item>(input.clone()).expect("Failed to parse the item.");
+    let item = parse::<Item>(input.clone()).expect("Failed to parse the item");
     // Some items require original input, so we keep it as well
     let input = TokenStream2::from(input);
 
@@ -170,13 +170,13 @@ pub fn mlua_bindgen(attr: TokenStream, input: TokenStream) -> TokenStream {
         Item::Struct(item) => {
             macro_error(
                 item, 
-                "If you want to implement a custom UserData type, you should put this macro on an impl block instead."
+                "If you want to implement a custom UserData type, you should put this macro on an impl block instead"
             )
         },
         _ => {
             macro_error(
                 item, 
-                "This macro can only be used on Impl blocks, Functions, Enums and Mod blocks."
+                "This macro can only be used on Impl blocks, Functions, Enums and Mod blocks"
             )
         }
     }.into()

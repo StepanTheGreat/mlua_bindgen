@@ -114,7 +114,7 @@ impl ExtractedFunc {
             } else {
                 // Extract the pattern (variable name) and type name
                 let (pat, ty): (TokenStream2, TokenStream2) = match inp_ty {
-                    FnArg::Receiver(_) => panic!("Can't contain the self argument."),
+                    FnArg::Receiver(_) => panic!("Can't contain the self argument"),
                     FnArg::Typed(ty) => {
                         (ty.pat.to_token_stream(), ty.ty.to_token_stream())
                     }
@@ -184,7 +184,7 @@ pub fn parse_function(item: &ImplItemFn, kind: FuncKind) -> TokenStream2 {
         let name_str = name.to_string();
         return macro_error(
             name, 
-            format!("Not enough arguments for {} \"{}\". It takes {} as its first {} arguments.", func_type, &name_str, args_fmt, exfunc.req_arg_count)
+            format!("Not enough arguments for {} \"{}\". It takes {} as its first {} arguments", func_type, &name_str, args_fmt, exfunc.req_arg_count)
         );
     }
 

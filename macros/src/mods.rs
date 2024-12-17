@@ -27,7 +27,7 @@ impl Parse for ModuleList {
         if ident.to_string() != "include" {
             return Err(syn::Error::new_spanned(
                 ident, 
-                "Only \"include\" keyword is accepted."
+                "Only \"include\" keyword is accepted"
             ));
         }
 
@@ -156,7 +156,7 @@ pub fn expand_mod(attrs: TokenStream, input: TokenStream2, item: ItemMod) -> Tok
                     // I guess could be useful
                     return macro_error(
                         mod_mod, 
-                        "Can't implement recursive modules. You should combine them separately for now."
+                        "Can't implement recursive modules. You should combine them separately for now"
                     )
                 },
                 _ => {}

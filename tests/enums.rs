@@ -5,7 +5,12 @@ use mlua_bindgen::AsTable;
 #[mlua_bindgen]
 enum GreatEnum {
     Var1,
-    Var2
+    Var2,
+    Var4 = 3,
+    Var100 = 100,
+    Var101,
+    Var90 = 90,
+    Var91 = 20,
 }
 
 #[test]
