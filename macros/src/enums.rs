@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
-use syn::{Expr, ItemEnum, Lit};
+use syn::{Expr, ItemEnum, Lit, UnOp};
 
 use crate::utils::macro_error;
 
@@ -21,12 +21,7 @@ pub fn expand_enum(input: TokenStream2, item: ItemEnum) -> TokenStream2 {
         let vname = variant.ident.to_token_stream();
         if let Some((_, ref expr)) = variant.discriminant {
             
-            // Things like negative enums for now don't exist, because apparently negative values aren't 
-            // considered to be litterals???
-            //
-            // In any case, I'm over-checking errors here, since I already got cases where a rust compiler doesn't
-            // complain on negative discriminants, while the lua enum simply skipped the variant.  
-
+            // Trying to avoid nesting here. Plus I'm over-checking errors to avoid undefined behaviour.
             let lit = if let Expr::Lit(lit) = expr { lit } else { 
                 return macro_error(
                     expr, 
@@ -36,18 +31,18 @@ pub fn expand_enum(input: TokenStream2, item: ItemEnum) -> TokenStream2 {
             let lit_int = if let Lit::Int(ref lit_int) = lit.lit { lit_int } else { 
                 return macro_error(
                     expr, 
-                    "Only integers are accepted in enum discriminants"
+                    "Only positive integers are accepted in enum discriminants"
                 );
             };
 
-            if let Ok(val) = lit_int.base10_parse::<usize>() {
+            if let Ok(val) = lit_int.base10_parse::<isize>() {
                 value = val;
             } else {
                 return macro_error(
                     expr, 
-                    "Failed to parse the discriminant. Expected a positive integer value"
+                    "Failed to parse the discriminant. Expected an integer value"
                 );
-            }
+            };
         }
         variants.push(quote! {
             table.set(stringify!(#vname), #value)?;
