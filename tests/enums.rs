@@ -12,6 +12,7 @@ enum GreatEnum {
     Var90 = 90,
     Var91 = 20,
 }
+// TODO: Don't forget to test this as well
 
 #[test]
 fn enums() -> mlua::Result<()> {
