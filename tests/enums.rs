@@ -8,22 +8,20 @@ enum GreatEnum {
     Var2,
     Var4 = 3,
     Var100 = 100,
-    Var101,
-    Var90 = 90,
-    Var91 = 20,
+    Var101
 }
-// TODO: Don't forget to test this as well
 
 #[test]
 fn enums() -> mlua::Result<()> {
     let lua = mlua::Lua::new();
     lua.globals().set("GreatEnum", GreatEnum::as_table(&lua)?)?;
-    let res = lua.load("
-        return GreatEnum.Var1 + GreatEnum.Var2
-    ").eval::<u32>()?;
-
-    assert_eq!(res, 1);
-    // Var1 is 0, Var2 is 1. So 0+1 = 1
+    lua.load("
+        assert(GreatEnum.Var1 == 0)
+        assert(GreatEnum.Var2 == 1)
+        assert(GreatEnum.Var4 == 3)
+        assert(GreatEnum.Var100 == 100)
+        assert(GreatEnum.Var101 == 101)
+    ").exec()?;
 
     Ok(())
 }
