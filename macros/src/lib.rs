@@ -1,6 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use syn::{parse, Item};
+use shared::{parse_attrs, parse_item, syn_error, ItemKind};
+use syn::Item;
 
 mod funcs;
 mod impls;
@@ -12,7 +13,6 @@ use funcs::expand_fn;
 use impls::expand_impl;
 use enums::expand_enum;
 use mods::expand_mod;
-use utils::macro_error;
 
 /// # mlua_bindgen
 /// A generative attribute macro and also bindgen marker that can transform rust items (like impl blocks/functions) into mlua acceptible structures.
@@ -158,26 +158,25 @@ use utils::macro_error;
 /// ```
 #[proc_macro_attribute]
 pub fn mlua_bindgen(attr: TokenStream, input: TokenStream) -> TokenStream {
-    let item = parse::<Item>(input.clone()).expect("Failed to parse the item");
-    // Some items require original input, so we keep it as well
     let input = TokenStream2::from(input);
 
-    match item {
-        Item::Impl(item) => expand_impl(item),
-        Item::Fn(item) => expand_fn(item),
-        Item::Enum(item) => expand_enum(input, item),
-        Item::Mod(item) => expand_mod(attr, input, item),
-        Item::Struct(item) => {
-            macro_error(
-                item, 
-                "If you want to implement a custom UserData type, you should put this macro on an impl block instead"
-            )
-        },
-        _ => {
-            macro_error(
-                item, 
-                "This macro can only be used on Impl blocks, Functions, Enums and Mod blocks"
-            )
+    let attrs = match parse_attrs(attr.into()) {
+        Ok(attrs) => attrs,
+        Err(err) => return err.to_compile_error().into()
+    };
+
+    match parse_item(input.clone()) {
+        ItemKind::Impl(item) => expand_impl(item),
+        ItemKind::Fn(item) => expand_fn(item),
+        ItemKind::Enum(item) => expand_enum(input, item),
+        ItemKind::Mod(item) => expand_mod(attrs, input, item),
+        ItemKind::Unsupported(item) => {
+            // Giving some useful tips
+            let msg = match item {
+                Item::Struct(_) => "If you want to implement a custom UserData type, you should put this macro on an impl block instead",
+                _ => "This macro can only be used on functions, enums, impl and mod blocks"
+            };
+            syn_error(item, msg).into_compile_error()
         }
     }.into()
 }

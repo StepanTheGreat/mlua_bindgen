@@ -4,53 +4,13 @@ use std::collections::HashSet;
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
+use shared::ItemAttrs;
 use syn::{parse::Parse, parse2, Expr, ExprArray, Ident, Item, ItemMod, Token};
 use quote::{quote, ToTokens};
 
 use crate::utils::{has_attr, macro_error, str_to_ident, MLUA_BINDGEN_ATTR};
 
 const MODULE_SUFFIX: &str = "_module";
-
-struct ModuleList {
-    /// A vector of module function paths (like `[math_module, some_module, ...]`)
-    included: Vec<syn::Path>
-}
-
-impl Parse for ModuleList {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        if input.is_empty() {
-            return Ok( ModuleList { included: vec![] });
-        }
-
-        // Parse the `include` keyword
-        let ident = input.parse::<Ident>()?;
-        if ident.to_string() != "include" {
-            return Err(syn::Error::new_spanned(
-                ident, 
-                "Only \"include\" keyword is accepted"
-            ));
-        }
-
-        // Parse the `=` sign
-        input.parse::<Token![=]>()?;
-
-        // Then we expect a list of expressions `[expr1, expr2]`
-        let items = input.parse::<ExprArray>()?;
-        
-        // Finally, we collect these expressions into the included vector.
-        // (Or to be precise, only the ones that are Path)
-        let mut included: Vec<syn::Path> = Vec::new();
-        for item in items.elems {
-            if let Expr::Path(path) = item {
-                included.push(path.path);
-            }
-        };
-
-        Ok(Self {
-            included
-        })
-    }
-}
 
 /// This function expands modules. The task is a bit more complicated, since now we not only
 /// include inner items, but also parse macro attributes for a list of arguments like 
@@ -60,7 +20,7 @@ impl Parse for ModuleList {
 /// 
 /// This is used to import other modules into the module space, and I think that's the best solution overall
 /// (In terms of parsing and convenience)
-pub fn expand_mod(attrs: TokenStream, input: TokenStream2, item: ItemMod) -> TokenStream2 {
+pub fn expand_mod(attrs: ItemAttrs, input: TokenStream2, item: ItemMod) -> TokenStream2 {
     let mod_name = item.ident.to_token_stream();
     let vis_param = item.vis.to_token_stream();
 
