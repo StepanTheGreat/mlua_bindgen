@@ -105,6 +105,7 @@ dependencies = [
  "mlua",
  "proc-macro2",
  "quote",
+ "shared",
  "syn",
 ]
 
@@ -148,6 +149,7 @@ version = "0.1.0"
 dependencies = [
  "macros",
  "mlua",
+ "shared",
 ]
 
 [[package]]
@@ -318,6 +320,10 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "shared"
+version = "0.1.0"
 
 [[package]]
 name = "shlex"
