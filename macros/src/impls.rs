@@ -1,4 +1,5 @@
 use proc_macro2::TokenStream as TokenStream2;
+use shared::syn_error;
 use syn::{
     ImplItem, ImplItemFn, ItemImpl
 };
@@ -30,28 +31,28 @@ pub fn parse_field(item: &ImplItemFn, kind: FieldKind) -> TokenStream2 {
             FieldKind::Getter => ("getter", "&Lua, &Self"),
             FieldKind::Setter => ("setter", "&Lua, &mut Self"),
         };
-        return macro_error(
+        return syn_error(
             name, 
             format!("Not enough arguments for {} \"{}\". It takes {} as its first {} arguments", field_type, &name_str, args_fmt, exfunc.req_arg_count)
-        );
+        ).to_compile_error();
     }
 
     // Here we're checking that the setter contains EXACTLY 1 argument, and the getter - 0
     match kind {
         FieldKind::Getter => {
             if usr_arg_names.len() > 0 {
-                return macro_error(
+                return syn_error(
                     name, 
                     format!("Getter {} can't contain more than 2 default arguments", &name_str)
-                );
+                ).to_compile_error();
             }
         },
         FieldKind::Setter => {
             if usr_arg_names.len() != 1 {
-                return macro_error(
+                return syn_error(
                     name, 
                     format!("Setter {} should contain exactly 3 arguments (2 default and 1 user argument)", &name_str)
-                );
+                ).to_compile_error();
             }
         }
     };
@@ -119,18 +120,18 @@ pub fn expand_impl(input: ItemImpl) -> TokenStream2 {
                 } else if path.is_ident("set") {
                     fields.push(parse_field(&func, FieldKind::Setter));
                 } else {
-                    return macro_error(
+                    return syn_error(
                         attr, 
                         "Incorrect attributes. Only method, method_mut, func or doc can be used"
-                    );
+                    ).to_compile_error();
                 }
             }
 
             if !has_required_attrs {
-                return macro_error(
+                return syn_error(
                     itm, 
                     "No attributes? If that's intentional - you should move this function to a normal impl block, since this macro ignores non-attributed functions"
-                );
+                ).to_compile_error();
             }
         } else {
             panic!("can't use impl items other than functions in export_lua macro")

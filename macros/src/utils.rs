@@ -1,21 +1,13 @@
 use std::fmt::Display;
 
 use proc_macro2::{Span, TokenStream as TokenStream2};
+use shared::syn_error;
 use syn::{
     parse_quote, punctuated::Punctuated, token::Comma, Attribute, FnArg, ImplItemFn, ItemFn
 };
 use quote::{quote, ToTokens};
 
 pub const MLUA_BINDGEN_ATTR: &str = "mlua_bindgen";
-
-/// The same as `syn::Error::new_spanned(tokens, msg).to_compile_error()`, but simpler
-pub(crate) fn macro_error<T, U>(tokens: T, msg: U) -> TokenStream2
-where 
-    T: ToTokens,
-    U: Display 
-{
-    syn::Error::new_spanned(tokens, msg).to_compile_error()
-}
 
 /// The absolute extracted function. The huge difference between this and [`FuncInfo`] is that the latter contains
 /// only the most basic information about the function. This contains additional information like user argument types,
@@ -182,10 +174,10 @@ pub fn parse_function(item: &ImplItemFn, kind: FuncKind) -> TokenStream2 {
             FuncKind::MethodMut => ("mutable method", "&Lua, &mut Self")
         };
         let name_str = name.to_string();
-        return macro_error(
+        return syn_error(
             name, 
             format!("Not enough arguments for {} \"{}\". It takes {} as its first {} arguments", func_type, &name_str, args_fmt, exfunc.req_arg_count)
-        );
+        ).to_compile_error();
     }
 
     // We generate 3 different registration code types, 2 to be used with mlua::UserData.
@@ -218,25 +210,4 @@ pub fn parse_function(item: &ImplItemFn, kind: FuncKind) -> TokenStream2 {
             }
         }
     }
-}
-
-/// Simply iterates over attributes and checks whether at least one of the attributes matches against the
-/// supplied `needed` attribute string. 
-/// 
-/// This is only used inside modules to check whether an item contains the `#[mlua_bindgen]` attribute.
-pub fn has_attr<'a>(attrs: &[Attribute], needed: &'a str) -> bool {
-    for attr in attrs {
-        if attr.path().is_ident(needed) {
-            return true
-        }
-    }
-    false
-}
-
-/// Convert a string into an ident token. 
-/// 
-/// The reason it can't already be done via str.to_token_stream() is that 
-/// it will include the quote characters as well. This is workaround.
-pub fn str_to_ident<'a>(input: &'a str) -> TokenStream2 {
-    syn::Ident::new(&input, Span::call_site()).to_token_stream()
 }

@@ -1,11 +1,14 @@
 //! This library isn't supposed to be exported, it only exists to share some common
 //! code between the macro and bindgen APIs.
-use std::fmt::{Debug, Display};
+use std::fmt::Display;
 
 use proc_macro2::TokenStream as TokenStream2;
-use syn::{parse::Parse, parse2, spanned::Spanned, token::Token, Expr, ExprArray, Ident, Item, ItemEnum, ItemFn, ItemImpl, ItemMod, Token};
+use syn::{parse::Parse, parse2, spanned::Spanned, Expr, ExprArray, Ident, Item, ItemEnum, ItemFn, ItemImpl, ItemMod, Token};
 
 pub mod items;
+pub use items::*;
+
+pub const MLUA_BINDGEN_ATTR: &str = "mlua_bindgen";
 
 /// A parsed Item kind. Unsupported items are put in as they are, to allow error checking
 pub enum ItemKind {
@@ -86,4 +89,25 @@ where
     D: Display 
 {
     syn::Error::new(span.span(), message)
+}
+
+/// Simply iterates over attributes and checks whether at least one of the attributes matches against the
+/// supplied `needed` attribute string. 
+/// 
+/// This is only used inside modules to check whether an item contains the `#[mlua_bindgen]` attribute.
+pub fn contains_attr<'a>(attrs: &[syn::Attribute], needed: &'a str) -> bool {
+    for attr in attrs {
+        if attr.path().is_ident(needed) {
+            return true
+        }
+    }
+    false
+}
+
+/// Convert a string into an ident token. 
+/// 
+/// The reason it can't already be done via str.to_token_stream() is that 
+/// it will include the quote characters as well. This is workaround.
+pub fn str_to_ident<'a>(input: &'a str) -> syn::Ident {
+    syn::Ident::new(&input, proc_macro2::Span::call_site())
 }
