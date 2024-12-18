@@ -7,6 +7,8 @@ use quote::{quote, ToTokens};
 
 use crate::utils::*;
 
+//TODO: Fix all of this
+
 /// This will parse the supplied impl function (and its [`FieldKind`]), extract neccessary information,
 /// then transform into a field registration code for mlua. 
 pub fn parse_field(input: ImplItemFn, kind: FieldKind) -> TokenStream2 {
