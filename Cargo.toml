@@ -21,3 +21,4 @@ members = [
 syn = {version="2.0.89", features = ["full"]}
 proc-macro2 = "1.0.91"
 mlua = {version="0.10.1", features=["luau"]}
+quote = "1.0.0"
