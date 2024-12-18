@@ -1,27 +1,38 @@
 use proc_macro2::TokenStream as TokenStream2;
-use syn::{ItemFn, Visibility};
-use quote::quote;
-
-use crate::utils::*;
+use shared::{funcs::{parse_func, FuncKind}, syn_error};
+use syn::ItemFn;
+use quote::{quote, ToTokens};
 
 /// Expand functions. This will overwrite the original function and also add a static type check
 /// to ensure that it has proper arguments/return types (by mlua rules of course)
 pub fn expand_fn(input: ItemFn) -> TokenStream2 {
-    let mut extracted = ExtractedFunc::from_func_info(&input, &FuncKind::Func);
-    let name = extracted.name;
-    let block = extracted.block;
-    let return_ty = extracted.return_ty;
-    let usr_arg_names = extracted.user_arg_names;
-    let usr_arg_types = extracted.user_arg_types;
-    let pub_param = match input.vis {
-        Visibility::Public(_) => quote! {pub},
-        Visibility::Restricted(_) | Visibility::Inherited => TokenStream2::new()
+    let mut parsed = match parse_func(input, &FuncKind::Func) {
+        Ok(parsed) => parsed,
+        Err(err) => return err.to_compile_error()
     };
 
-    // We popped this value to use it separately as the first argument in the function.
-    // The mlua call convention looks like this: fn myfunc(lua: &Lua, (arg1, arg2): (Type1, Type2))
-    // Thus, we handle this case separately.
-    let lua_arg = extracted.trait_arg_names.remove(0);
+    let name = parsed.name;
+    let block = parsed.block;
+    let return_ty = parsed.return_ty;
+    let pub_param = parsed.visibility;
+
+    if parsed.args.is_empty() {
+        return syn_error(
+            name,
+            "A lua function has to contain at least a single &Lua argument"
+        ).into_compile_error();
+    }
+
+    let mut usr_arg_names: Vec<TokenStream2> = Vec::new();
+    let mut usr_arg_types: Vec<TokenStream2> = Vec::new();
+
+    // The lua argument is added separately from user arguments, so we pop it and add it separately.
+    let lua_arg = parsed.args.remove(0).into_token_stream();
+
+    for arg in parsed.args {
+        usr_arg_names.push(arg.name.into_token_stream());
+        usr_arg_types.push(arg.ty.into_token_stream());
+    }
 
     quote! {
         #pub_param fn #name(#lua_arg, (#(#usr_arg_names), *): (#(#usr_arg_types), *)) -> ::mlua::Result<#return_ty> #block

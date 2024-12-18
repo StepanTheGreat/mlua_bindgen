@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream as TokenStream2;
-use shared::syn_error;
+use shared::{funcs::{parse_func, FuncKind}, syn_error};
 use syn::{
     ImplItem, ImplItemFn, ItemImpl
 };
@@ -9,19 +9,11 @@ use crate::utils::*;
 
 /// This will parse the supplied impl function (and its [`FieldKind`]), extract neccessary information,
 /// then transform into a field registration code for mlua. 
-pub fn parse_field(item: &ImplItemFn, kind: FieldKind) -> TokenStream2 {
+pub fn parse_field(input: ImplItemFn, kind: FieldKind) -> TokenStream2 {
     // This is completely unsound, but for now that's our workaround
-    let exfunc = ExtractedFunc::from_func_info(item, &FuncKind::MethodMut);
-    
-    let (usr_inp_tys, return_ty, name, trait_arg_names, usr_arg_names, block) = {
-        (
-            exfunc.user_arg_types,
-            exfunc.return_ty,
-            exfunc.name,
-            exfunc.trait_arg_names,
-            exfunc.user_arg_names,
-            exfunc.block
-        )
+    let exfunc = match parse_func(input, &FuncKind::MethodMut) {
+        Ok(func) => func,
+        Err(err) => return err.into_compile_error()
     };
 
     let name_str = name.to_string(); // This is used mostly for errors
@@ -40,7 +32,7 @@ pub fn parse_field(item: &ImplItemFn, kind: FieldKind) -> TokenStream2 {
     // Here we're checking that the setter contains EXACTLY 1 argument, and the getter - 0
     match kind {
         FieldKind::Getter => {
-            if usr_arg_names.len() > 0 {
+            if !usr_arg_names.is_empty() {
                 return syn_error(
                     name, 
                     format!("Getter {} can't contain more than 2 default arguments", &name_str)
@@ -110,15 +102,15 @@ pub fn expand_impl(input: ItemImpl) -> TokenStream2 {
                 has_required_attrs = true;
 
                 if path.is_ident("method") {
-                    methods.push(parse_function(&func, FuncKind::Method));
+                    methods.push(parse_impl_function(func, FuncKind::Method));
                 } else if path.is_ident("method_mut") {
-                    methods.push(parse_function(&func, FuncKind::MethodMut));
+                    methods.push(parse_impl_function(func, FuncKind::MethodMut));
                 } else if path.is_ident("func") {
-                    funcs.push(parse_function(&func, FuncKind::Func));
+                    funcs.push(parse_impl_function(func, FuncKind::Func));
                 } else if path.is_ident("get") {
-                    fields.push(parse_field(&func, FieldKind::Getter));
+                    fields.push(parse_field(func, FieldKind::Getter));
                 } else if path.is_ident("set") {
-                    fields.push(parse_field(&func, FieldKind::Setter));
+                    fields.push(parse_field(func, FieldKind::Setter));
                 } else {
                     return syn_error(
                         attr, 
@@ -156,5 +148,5 @@ pub fn expand_impl(input: ItemImpl) -> TokenStream2 {
                 Ok(table)
             }
         }
-    }.into()
+    }
 }

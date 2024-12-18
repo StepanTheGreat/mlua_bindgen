@@ -31,7 +31,7 @@ impl ModulePath {
             Some(pos) => pos,
             None => return Err(syn_error(
                 path, 
-                &format!("Included modules have to end with the \"{MODULE_SUFFIX}\" keyword")
+                format!("Included modules have to end with the \"{MODULE_SUFFIX}\" keyword")
             ))
         };
         let (real_name, _) = name.split_at(split_pos);

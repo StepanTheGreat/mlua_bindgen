@@ -51,7 +51,7 @@ impl Parse for ItemAttrs {
 
         // Parse the `include` keyword
         let ident = input.parse::<Ident>()?;
-        if ident.to_string() != "include" {
+        if ident != "include" {
             return Err(syn::Error::new_spanned(
                 ident, 
                 "Only \"include\" keyword is accepted"
@@ -95,7 +95,7 @@ where
 /// supplied `needed` attribute string. 
 /// 
 /// This is only used inside modules to check whether an item contains the `#[mlua_bindgen]` attribute.
-pub fn contains_attr<'a>(attrs: &[syn::Attribute], needed: &'a str) -> bool {
+pub fn contains_attr(attrs: &[syn::Attribute], needed: &str) -> bool {
     for attr in attrs {
         if attr.path().is_ident(needed) {
             return true
@@ -108,6 +108,6 @@ pub fn contains_attr<'a>(attrs: &[syn::Attribute], needed: &'a str) -> bool {
 /// 
 /// The reason it can't already be done via str.to_token_stream() is that 
 /// it will include the quote characters as well. This is workaround.
-pub fn str_to_ident<'a>(input: &'a str) -> syn::Ident {
-    syn::Ident::new(&input, proc_macro2::Span::call_site())
+pub fn str_to_ident(input: &str) -> syn::Ident {
+    syn::Ident::new(input, proc_macro2::Span::call_site())
 }
