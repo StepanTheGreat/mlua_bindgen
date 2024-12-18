@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream as TokenStream2;
-use shared::{funcs::{CommonFunc, FuncKind}, syn_error};
-use syn::{FnArg, ImplItemFn, ItemFn};
-use quote::{quote, ToTokens};
+use shared::{funcs::FuncKind, syn_error};
+use syn::ImplItemFn;
+use quote::quote;
 
 /// Parse an impl function (be it function or method), and convert into registration code.
 /// 
