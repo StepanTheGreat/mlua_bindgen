@@ -1,12 +1,14 @@
+use proc_macro2::TokenStream as TokenStream2;
 use quote::ToTokens;
 use shared::funcs::FuncArg;
-use proc_macro2::TokenStream as TokenStream2;
 
 /// Consume the argument vector, and return 3 vectors corresponding to:
 /// 1. Required argument names
 /// 2. User argument names
 /// 3. User argument types
-pub fn into_arg_tokens(args: Vec<FuncArg>) -> (Vec<TokenStream2>, Vec<TokenStream2>, Vec<TokenStream2>) {
+pub fn into_arg_tokens(
+    args: Vec<FuncArg>,
+) -> (Vec<TokenStream2>, Vec<TokenStream2>, Vec<TokenStream2>) {
     let mut req_arg_names: Vec<TokenStream2> = Vec::new();
     let mut usr_arg_names: Vec<TokenStream2> = Vec::new();
     let mut usr_arg_types: Vec<TokenStream2> = Vec::new();

@@ -11,34 +11,36 @@ pub const MODULE_SUFFIX: &str = "_module";
 pub enum ModuleItem {
     Fn(Ident),
     Enum(Ident),
-    Impl(Type)
+    Impl(Type),
 }
 
 /// Basically a path, but for modules. It simplifies frefix management and other stuff
 pub struct ModulePath {
     name: String,
-    pub path: Path
+    pub path: Path,
 }
 
 impl ModulePath {
     /// Try to construct the module path from a path. It will fail if the module path doesn't contain the
     /// module suffix at the end.
     pub fn from_path(path: Path) -> syn::Result<Self> {
-        let ident = path.segments.last().map(|seg|  &seg.ident).unwrap();
+        let ident = path.segments.last().map(|seg| &seg.ident).unwrap();
         let name = ident.to_string();
 
         let split_pos = match name.rfind(MODULE_SUFFIX) {
             Some(pos) => pos,
-            None => return Err(syn_error(
-                path, 
-                format!("Included modules have to end with the \"{MODULE_SUFFIX}\" keyword")
-            ))
+            None => {
+                return Err(syn_error(
+                    path,
+                    format!("Included modules have to end with the \"{MODULE_SUFFIX}\" keyword"),
+                ))
+            }
         };
         let (real_name, _) = name.split_at(split_pos);
 
         Ok(Self {
             path,
-            name: real_name.to_string()
+            name: real_name.to_string(),
         })
     }
 
@@ -46,7 +48,7 @@ impl ModulePath {
     pub fn get_ident(&self) -> Ident {
         str_to_ident(&self.name)
     }
-    
+
     /// Returns module's name without the prefix
     pub fn name(&self) -> String {
         self.name.clone()
@@ -66,7 +68,7 @@ pub struct ParsedModule {
     pub ident: Ident,
     pub visibility: Visibility,
     pub includes: Vec<ModulePath>,
-    pub items: Vec<ModuleItem>
+    pub items: Vec<ModuleItem>,
 }
 
 pub fn parse_mod(attrs: ItemAttrs, item: ItemMod) -> syn::Result<ParsedModule> {
@@ -77,7 +79,7 @@ pub fn parse_mod(attrs: ItemAttrs, item: ItemMod) -> syn::Result<ParsedModule> {
 
     let included = match attrs {
         ItemAttrs::Empty => Vec::new(),
-        ItemAttrs::Includes(paths) => paths
+        ItemAttrs::Includes(paths) => paths,
     };
 
     // To avoid stupidity, we will not accept repeated modules
@@ -86,7 +88,7 @@ pub fn parse_mod(attrs: ItemAttrs, item: ItemMod) -> syn::Result<ParsedModule> {
         // let path = fn_path; // Original path, what we need
         let mod_path = match ModulePath::from_path(fn_path.clone()) {
             Ok(mod_path) => mod_path,
-            Err(err) => return Err(err)
+            Err(err) => return Err(err),
         };
         let mod_name = mod_path.name();
 
@@ -99,7 +101,7 @@ pub fn parse_mod(attrs: ItemAttrs, item: ItemMod) -> syn::Result<ParsedModule> {
         includes.push(mod_path);
     }
 
-    // Now we iterate actual module items, and if they contain the [`MLUA_BINDGEN_ATTR`] attribute - 
+    // Now we iterate actual module items, and if they contain the [`MLUA_BINDGEN_ATTR`] attribute -
     // we add their module registration code to the exports.
     if let Some((_, mod_items)) = item.content {
         for mod_item in mod_items {
@@ -107,25 +109,23 @@ pub fn parse_mod(attrs: ItemAttrs, item: ItemMod) -> syn::Result<ParsedModule> {
                 Item::Fn(mod_fn) => (ModuleItem::Fn(mod_fn.sig.ident), mod_fn.attrs),
                 Item::Enum(mod_enum) => (ModuleItem::Enum(mod_enum.ident), mod_enum.attrs),
                 Item::Impl(mod_impl) => (ModuleItem::Impl(*mod_impl.self_ty), mod_impl.attrs),
-                Item::Mod(mod_mod) => {
-                    return Err(syn_error(
-                        mod_mod, 
-                        "Can't implement recursive modules. You should combine them separately for now"
-                    ))
-                },
-                _ => continue
+                Item::Mod(mod_mod) => return Err(syn_error(
+                    mod_mod,
+                    "Can't implement recursive modules. You should combine them separately for now",
+                )),
+                _ => continue,
             };
-            if !contains_attr(&attrs, MLUA_BINDGEN_ATTR) { 
-                continue 
+            if !contains_attr(&attrs, MLUA_BINDGEN_ATTR) {
+                continue;
             };
             items.push(new_item);
-        }    
+        }
     };
 
     Ok(ParsedModule {
         ident,
         visibility,
         includes,
-        items
+        items,
     })
 }

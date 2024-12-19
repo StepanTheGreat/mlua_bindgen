@@ -2,16 +2,14 @@ use macros::mlua_bindgen;
 use mlua_bindgen::AsTable;
 
 pub struct ResId {
-    id: u64
+    id: u64,
 }
 
 #[mlua_bindgen]
 impl ResId {
     #[func]
     fn new(_: &mlua::Lua, with: u64) -> Self {
-        Ok(Self {
-            id: with
-        })
+        Ok(Self { id: with })
     }
 
     #[get]
@@ -26,11 +24,15 @@ fn userdata() -> mlua::Result<()> {
 
     lua.globals().set("ResId", ResId::as_table(&lua)?)?;
 
-    let result = lua.load("
+    let result = lua
+        .load(
+            "
         local res_id = ResId.new(127)        
 
         return res_id.id
-    ").eval::<u64>()?;
+    ",
+        )
+        .eval::<u64>()?;
     assert_eq!(result, 127);
 
     Ok(())

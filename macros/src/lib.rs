@@ -3,49 +3,49 @@ use proc_macro2::TokenStream as TokenStream2;
 use shared::utils::{parse_attrs, parse_item, syn_error, ItemKind};
 use syn::Item;
 
+mod enums;
 mod funcs;
 mod impls;
-mod enums;
 mod mods;
 mod utils;
 
+use enums::expand_enum;
 use funcs::expand_fn;
 use impls::expand_impl;
-use enums::expand_enum;
 use mods::expand_mod;
 
 /// # mlua_bindgen
 /// A generative attribute macro and also bindgen marker that can transform rust items (like impl blocks/functions) into mlua acceptible structures.
 /// It basically removes boilerplate code from type registration, while also serving role as a marker for generating lua declaration types.
-/// 
+///
 /// ## An example:
 /// ```
 /// struct MyStruct {
 ///     field: u32
 /// }
-/// 
+///
 /// impl mlua::UserData for MyStruct {
-///     fn add_fields<F: mlua::UserDataFields<Self>>(fields: &mut F) { 
+///     fn add_fields<F: mlua::UserDataFields<Self>>(fields: &mut F) {
 ///         fields.add_field_method_get::<_, u32>("field", |_: &Lua, this: &Self| Ok(this.field));
 ///     }
 ///
 ///     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {}
 /// }
 ///```
-/// 
+///
 /// With this macro can also be expressed as:
 /// ```
 /// struct MyStruct {
 ///     field: u32
 /// }
-/// 
+///
 /// #[mlua_bindgen]
 /// impl MyStruct {
 ///     #[get]
 ///     fn field(_: &Lua, this: &Self) -> u32 {
 ///         Ok(this.field)
 ///     }
-/// 
+///
 ///     #[set]
 ///     fn field(_: &Lua, this: &mut Self, new_val: u32) {
 ///         this.field = new_val;
@@ -53,9 +53,9 @@ use mods::expand_mod;
 ///     }
 /// }
 /// ```
-/// 
+///
 /// ## What's supported:
-/// 
+///
 /// ### Functions
 /// ```
 /// #[mlua_bindgen]
@@ -96,7 +96,7 @@ use mods::expand_mod;
 ///        this.name = to;
 ///        Ok(())
 ///    }
-/// 
+///
 ///    #[func]
 ///    fn make_new(_: _, ud: AnyUserData, name: &str) -> Self {
 ///        Ok(Self {
@@ -145,7 +145,7 @@ use mods::expand_mod;
 ///     }
 /// }
 ///
-/// // This will automatically create a function that will 
+/// // This will automatically create a function that will
 /// // return ALL module items and included modules in a table.  
 ///
 /// lua.globals().set("utils", utils_module(&lua)?)?;
@@ -162,7 +162,7 @@ pub fn mlua_bindgen(attr: TokenStream, input: TokenStream) -> TokenStream {
 
     let attrs = match parse_attrs(attr.into()) {
         Ok(attrs) => attrs,
-        Err(err) => return err.to_compile_error().into()
+        Err(err) => return err.to_compile_error().into(),
     };
 
     match parse_item(input.clone()) {
@@ -180,4 +180,3 @@ pub fn mlua_bindgen(attr: TokenStream, input: TokenStream) -> TokenStream {
         }
     }.into()
 }
-

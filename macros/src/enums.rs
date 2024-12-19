@@ -7,18 +7,19 @@ use syn::ItemEnum;
 /// anything. The reason it's not in the separate derive, is that the same macro implements the same trait
 /// for structs as well. I guess just for consistency? It would be strange if the same trait is applied differently
 /// for different types (like #[derive(AsTable)] for enums, and #[mlua_bindgen] for structs).
-/// 
+///
 /// And yes, I call them "structs", even though they are impl blocks just for simplicity.
-/// 
+///
 /// Currently these enums don't support discriminants, so all values start from 0.
 pub fn expand_enum(input: TokenStream2, item: ItemEnum) -> TokenStream2 {
     let parsed_enum = match parse_enum(&item) {
         Ok(item) => item,
-        Err(err) => return err.to_compile_error()
+        Err(err) => return err.to_compile_error(),
     };
 
     let name = parsed_enum.ident.to_token_stream();
-    let variants: Vec<TokenStream2> = parsed_enum.variants
+    let variants: Vec<TokenStream2> = parsed_enum
+        .variants
         .iter()
         .map(|(ident, value)| {
             let vname = ident.to_string();
