@@ -1,7 +1,9 @@
 use macros::mlua_bindgen;
 
 #[mlua_bindgen]
-pub fn cool_fn(_: &mlua::Lua, _: u32, _: bool) -> u32 {
+pub fn cool_fn(_: &mlua::Lua, sm: u32, is_true: bool) -> u32 {
+    assert_eq!(is_true, true);
+    assert_eq!(sm, 32);
     Ok(50)
 }
 
