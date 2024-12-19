@@ -1,136 +1,106 @@
 use proc_macro2::TokenStream as TokenStream2;
-use shared::{funcs::{parse_func, FuncKind}, syn_error};
-use syn::{
-    ImplItem, ImplItemFn, ItemImpl
+use shared::{
+    funcs::FuncKind, 
+    impls::{parse_impl, FieldKind, ParsedField, ParsedImplFunc}
 };
-use quote::{quote, ToTokens};
+use syn::ItemImpl;
+use quote::quote;
 
-use crate::utils::*;
-
-//TODO: Fix all of this
+use crate::utils::into_arg_tokens;
 
 /// This will parse the supplied impl function (and its [`FieldKind`]), extract neccessary information,
 /// then transform into a field registration code for mlua. 
-pub fn parse_field(input: ImplItemFn, kind: FieldKind) -> TokenStream2 {
-    // This is completely unsound, but for now that's our workaround
-    let exfunc = match parse_func(input, &FuncKind::MethodMut) {
-        Ok(func) => func,
-        Err(err) => return err.into_compile_error()
-    };
+pub fn expand_field(input: ParsedField) -> TokenStream2 {
+    let (func, kind) = (input.func, input.kind);
 
-    let name_str = name.to_string(); // This is used mostly for errors
+    let name=  &func.name;
+    let block = &func.block;
+    let return_ty = &func.return_ty;
 
-    if trait_arg_names.len() < exfunc.req_arg_count {
-        let (field_type, args_fmt) = match kind {
-            FieldKind::Getter => ("getter", "&Lua, &Self"),
-            FieldKind::Setter => ("setter", "&Lua, &mut Self"),
-        };
-        return syn_error(
-            name, 
-            format!("Not enough arguments for {} \"{}\". It takes {} as its first {} arguments", field_type, &name_str, args_fmt, exfunc.req_arg_count)
-        ).to_compile_error();
-    }
-
-    // Here we're checking that the setter contains EXACTLY 1 argument, and the getter - 0
-    match kind {
-        FieldKind::Getter => {
-            if !usr_arg_names.is_empty() {
-                return syn_error(
-                    name, 
-                    format!("Getter {} can't contain more than 2 default arguments", &name_str)
-                ).to_compile_error();
-            }
-        },
-        FieldKind::Setter => {
-            if usr_arg_names.len() != 1 {
-                return syn_error(
-                    name, 
-                    format!("Setter {} should contain exactly 3 arguments (2 default and 1 user argument)", &name_str)
-                ).to_compile_error();
-            }
-        }
-    };
+    let (
+        req_arg_names,
+        user_arg_names,
+        user_arg_types
+    ) = into_arg_tokens(func.args);
 
     // It could be concatenated, but I'll probably leave it for readability reasons.
-
     match kind {
-        FieldKind::Getter => {
-            quote! {
-                fields.add_field_method_get::<_, #return_ty>(
-                    stringify!(#name), 
-                    |#(#trait_arg_names), *| #block
-                );
-            }
+        FieldKind::Getter => quote! {
+            fields.add_field_method_get::<_, #return_ty>(
+                stringify!(#name), 
+                |#(#req_arg_names), *| #block
+            );
         },
-        FieldKind::Setter => {
-            quote! {
-                fields.add_field_method_set::<_, (#(#usr_inp_tys), *)>(
-                    stringify!(#name), 
-                    |#(#trait_arg_names), *, (#(#usr_arg_names), *)| #block
-                );
-            }
+        FieldKind::Setter => quote! {
+            fields.add_field_method_set::<_, (#(#user_arg_types), *)>(
+                stringify!(#name), 
+                |#(#req_arg_names), *, (#(#user_arg_names), *)| #block
+            );
         }
+    }
+}
+
+pub fn expand_impl_func(input: ParsedImplFunc) -> TokenStream2 {
+    let (func, kind) = (input.func, input.kind);
+
+    let name=  &func.name;
+    let block = &func.block;
+    let return_ty = &func.return_ty;
+
+    let (
+        req_arg_names,
+        user_arg_names,
+        user_arg_types
+    ) = into_arg_tokens(func.args);
+
+    // It could be concatenated, but I'll probably leave it for readability reasons.
+    match kind {
+        FuncKind::Func => quote! { 
+            table.set(
+                stringify!(#name), 
+                lua.create_function::<_, (#(#user_arg_types),*), #return_ty>(
+                    |#(#req_arg_names), *, (#(#user_arg_names), *)| #block
+                )?
+            )?; 
+        },
+        FuncKind::Method => quote! {
+            methods.add_method::<_, (#(#user_arg_types),*), #return_ty>(
+                stringify!(#name), 
+                |#(#req_arg_names), *, (#(#user_arg_names), *)| #block
+            ); 
+        },
+        FuncKind::MethodMut => quote! {
+            fields.add_method_mut::<_, (#(#user_arg_types), *)>(
+                stringify!(#name), 
+                |#(#req_arg_names), *, (#(#user_arg_names), *)| #block
+            );
+        },
     }
 }
 
 /// Expand the impl block. This will overwrite the entire impl block
 /// with an implementation of [`mlua::UserData`] + [`mlua_bindgen::AsTable`]
 pub fn expand_impl(input: ItemImpl) -> TokenStream2 {
-    let mut methods = Vec::new();
-    let mut fields = Vec::new();
-    let mut funcs = Vec::new();
+    let parsed_impl = match parse_impl(input) {
+        Ok(parsed) => parsed,
+        Err(err) => return err.into_compile_error()
+    };
+    let impl_name = parsed_impl.name;
 
-    // Analyze the impl block
-    let impl_name = input.self_ty.to_token_stream();
+    let fields: Vec<TokenStream2> = parsed_impl.fields
+        .into_iter()
+        .map(|field| expand_field(field))
+        .collect();
 
-    // Convert the generated code to a TokenStream
-    for itm in input.items.iter() {
-        if let ImplItem::Fn(ref func) = itm {
-            // I made a mistake myself, because of which I wasted almost half and hour, but basically, this macro doesn't
-            // disallow you from using normal functions with #[mlua_bindgen] impl blocks.
-            // 
-            // This isn't supposed to be an error, rather a tip for some that would stumble on this "unexpected" use.
-            // In any case, this variable basically describes if the attribute has any of the required attributes not to be considered
-            // "useless"
-            let mut has_required_attrs: bool = false;
+    let funcs: Vec<TokenStream2> = parsed_impl.funcs
+        .into_iter()
+        .map(|func| expand_impl_func(func))
+        .collect();
 
-            for attr in func.attrs.iter() {
-                let path: &syn::Path = attr.path();
-
-                // Ignore documentation
-                if path.is_ident("doc") { continue };
-
-                // Only assign true if the attribute is one of the specified or just incorrect.
-                has_required_attrs = true;
-
-                if path.is_ident("method") {
-                    methods.push(parse_impl_function(func, FuncKind::Method));
-                } else if path.is_ident("method_mut") {
-                    methods.push(parse_impl_function(func, FuncKind::MethodMut));
-                } else if path.is_ident("func") {
-                    funcs.push(parse_impl_function(func, FuncKind::Func));
-                } else if path.is_ident("get") {
-                    fields.push(parse_field(func, FieldKind::Getter));
-                } else if path.is_ident("set") {
-                    fields.push(parse_field(func, FieldKind::Setter));
-                } else {
-                    return syn_error(
-                        attr, 
-                        "Incorrect attributes. Only method, method_mut, func or doc can be used"
-                    ).to_compile_error();
-                }
-            }
-
-            if !has_required_attrs {
-                return syn_error(
-                    itm, 
-                    "No attributes? If that's intentional - you should move this function to a normal impl block, since this macro ignores non-attributed functions"
-                ).to_compile_error();
-            }
-        } else {
-            panic!("can't use impl items other than functions in export_lua macro")
-        }
-    }
+    let methods: Vec<TokenStream2> = parsed_impl.methods
+        .into_iter()
+        .map(|method| expand_impl_func(method))
+        .collect();
 
     quote! {   
         impl ::mlua::UserData for #impl_name {

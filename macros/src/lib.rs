@@ -1,13 +1,13 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use shared::{parse_attrs, parse_item, syn_error, ItemKind};
+use shared::utils::{parse_attrs, parse_item, syn_error, ItemKind};
 use syn::Item;
 
 mod funcs;
 mod impls;
-mod utils;
 mod enums;
 mod mods;
+mod utils;
 
 use funcs::expand_fn;
 use impls::expand_impl;

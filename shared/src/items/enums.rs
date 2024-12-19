@@ -1,6 +1,6 @@
 use syn::{Expr, Ident, ItemEnum, Lit};
 
-use crate::syn_error;
+use crate::utils::syn_error;
 
 type VariantValue = usize;
 

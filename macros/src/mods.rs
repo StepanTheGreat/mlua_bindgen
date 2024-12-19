@@ -1,7 +1,10 @@
 //! A confusing name, but it basically stands for "modules"
 
 use proc_macro2::TokenStream as TokenStream2;
-use shared::{items::mods::{parse_mod, ModuleItem}, str_to_ident, ItemAttrs};
+use shared::{
+    items::mods::{parse_mod, ModuleItem}, 
+    utils::{str_to_ident, ItemAttrs}
+};
 use syn::ItemMod;
 use quote::{quote, ToTokens};
 

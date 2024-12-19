@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use syn::{Ident, Item, ItemMod, Path, Type, Visibility};
 
-use crate::{contains_attr, str_to_ident, syn_error, ItemAttrs, MLUA_BINDGEN_ATTR};
+use crate::utils::{contains_attr, str_to_ident, syn_error, ItemAttrs, MLUA_BINDGEN_ATTR};
 
 pub const MODULE_SUFFIX: &str = "_module";
 

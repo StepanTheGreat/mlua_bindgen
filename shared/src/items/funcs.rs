@@ -3,7 +3,7 @@ use syn::{
     punctuated::Punctuated, token::{Comma, Paren}, Block, FnArg, Ident, ImplItemFn, ItemFn, Pat, ReturnType, Type, TypeTuple, Visibility
 };
 
-use crate::syn_error;
+use crate::utils::syn_error;
 
 pub struct CommonFuncInfo {
     pub ident: Ident,
@@ -90,6 +90,18 @@ pub struct ParsedFunc {
     pub return_ty: Type
 }
 
+impl ParsedFunc {
+    /// Get the amount of user arguments
+    pub fn user_arg_count(&self) -> usize {
+        self.args.iter().filter(|arg| !arg.required).count()
+    }
+
+    /// Get the amount of required arguments
+    pub fn req_arg_count(&self) -> usize {
+        self.args.iter().filter(|arg| arg.required).count()
+    }
+}
+
 pub fn parse_func(item: impl CommonFunc, kind: &FuncKind) -> syn::Result<ParsedFunc> {
     let info = item.get_info();
     let name = info.ident;
@@ -124,6 +136,7 @@ pub fn parse_func(item: impl CommonFunc, kind: &FuncKind) -> syn::Result<ParsedF
     };
     for (ind, inp_ty) in info.args.into_iter().enumerate() {
         let is_required = ind < req_arg_count;
+
         let (pat, ty) = match inp_ty {
             FnArg::Receiver(_) => return Err(syn_error(
                 inp_ty,
@@ -131,12 +144,25 @@ pub fn parse_func(item: impl CommonFunc, kind: &FuncKind) -> syn::Result<ParsedF
             )),
             FnArg::Typed(ty) => (ty.pat, ty.ty)
         };
+
         args.push(FuncArg {
             name: *pat,
             ty: *ty,
             required: is_required
         });
     };
+
+    if args.len() < req_arg_count {
+        let args_fmt = match kind {
+            FuncKind::Func => "&Lua",
+            FuncKind::Method => "&Lua, &Self",
+            FuncKind::MethodMut => "&Lua, &mut Self",
+        };
+        return Err(syn_error(
+            name, 
+            format!("Not enough arguments. It should take {} as its first {} arguments", args_fmt, req_arg_count)
+        ));
+    }
 
     Ok(ParsedFunc { 
         name, 
