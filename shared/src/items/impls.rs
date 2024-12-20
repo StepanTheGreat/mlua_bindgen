@@ -103,10 +103,6 @@ pub fn parse_field(input: ImplItemFn, kind: FieldKind) -> syn::Result<ParsedFiel
 
 /// Parse a lua [`UserData`] method/function into a [`ParsedImplFunc`]
 pub fn parse_impl_func(input: ImplItemFn, kind: FuncKind) -> syn::Result<ParsedImplFunc> {
-    let func = match parse_func(input, &kind) {
-        Ok(func) => func,
-        Err(err) => return Err(err),
-    };
-
+    let func = parse_func(input, &kind)?;
     Ok(ParsedImplFunc { func, kind })
 }

@@ -86,10 +86,7 @@ pub fn parse_mod(attrs: ItemAttrs, item: ItemMod) -> syn::Result<ParsedModule> {
     let mut already_added: HashSet<String> = HashSet::new();
     for fn_path in included {
         // let path = fn_path; // Original path, what we need
-        let mod_path = match ModulePath::from_path(fn_path.clone()) {
-            Ok(mod_path) => mod_path,
-            Err(err) => return Err(err),
-        };
+        let mod_path = ModulePath::from_path(fn_path.clone())?;
         let mod_name = mod_path.name();
 
         // Yep, give him an error. That's silly
