@@ -5,19 +5,19 @@ use crate::utils::syn_error;
 type VariantValue = usize;
 
 /// Contains general enum information, that is important both for macros and bindgen parsers
-pub struct ParsedEnum<'a> {
-    pub ident: &'a Ident,
-    pub variants: Vec<(&'a Ident, VariantValue)>,
+pub struct ParsedEnum {
+    pub ident: Ident,
+    pub variants: Vec<(Ident, VariantValue)>,
 }
 
 /// Parse an [`ItemEnum`] into [`ParsedEnum`].
-pub fn parse_enum<'a>(item: &'a ItemEnum) -> syn::Result<ParsedEnum<'a>> {
-    let ident = &item.ident;
-    let mut variants: Vec<(&'a Ident, VariantValue)> = Vec::new();
+pub fn parse_enum(item: ItemEnum) -> syn::Result<ParsedEnum> {
+    let ident = item.ident;
+    let mut variants: Vec<(Ident, VariantValue)> = Vec::new();
 
     let mut value: VariantValue = 0;
-    for variant in item.variants.iter() {
-        let vident = &variant.ident;
+    for variant in item.variants.into_iter() {
+        let vident = variant.ident;
         if let Some((_, ref expr)) = variant.discriminant {
             // Trying to avoid nesting here. Plus I'm over-checking errors to avoid undefined behaviour.
             let lit = if let Expr::Lit(lit) = expr {

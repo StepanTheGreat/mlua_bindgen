@@ -12,7 +12,7 @@ use syn::ItemEnum;
 ///
 /// Currently these enums don't support discriminants, so all values start from 0.
 pub fn expand_enum(input: TokenStream2, item: ItemEnum) -> TokenStream2 {
-    let parsed_enum = match parse_enum(&item) {
+    let parsed_enum = match parse_enum(item) {
         Ok(item) => item,
         Err(err) => return err.to_compile_error(),
     };
