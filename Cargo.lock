@@ -149,7 +149,9 @@ version = "0.1.0"
 dependencies = [
  "macros",
  "mlua",
+ "proc-macro2",
  "shared",
+ "syn",
 ]
 
 [[package]]
