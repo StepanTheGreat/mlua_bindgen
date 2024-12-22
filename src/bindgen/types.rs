@@ -1,5 +1,8 @@
+use shared::{
+    enums::{LuaVariantType, ParsedEnum},
+    funcs::ParsedFunc,
+};
 use std::fmt::Write;
-use shared::{enums::{LuaVariantType, ParsedEnum}, funcs::ParsedFunc};
 use syn::Pat;
 
 use super::{utils::add_tabs, LuaType};
@@ -14,19 +17,19 @@ pub struct LuaArg {
     pub ty: LuaType,
     /// Optional args can be ignored when calling a function. In rust it's declared as [`Option<T>`],
     /// while in Lua it's just `T?`
-    pub optional: bool
+    pub optional: bool,
 }
 
 /// A field for luau structs
 pub struct LuaField {
     pub name: String,
-    pub ty: LuaType
+    pub ty: LuaType,
 }
 
 /// A field for luau enums
 pub struct LuaVariant {
     pub name: String,
-    pub value: LuaVariantType
+    pub value: LuaVariantType,
 }
 
 /// A luau function that contains its name, doc, return type, named [`LuaArg`] and its parent module name
@@ -35,7 +38,7 @@ pub struct LuaFunc {
     name: String,
     doc: ItemDoc,
     return_ty: LuaType,
-    args: Vec<LuaArg>
+    args: Vec<LuaArg>,
 }
 
 impl LuaFunc {
@@ -48,7 +51,6 @@ impl LuaFunc {
 
         let mut args = Vec::new();
         for (ind, arg) in parsed.args.iter().enumerate() {
-
             // If the index is smaller than the amount of required arguments - skip
             if ind < skip_args {
                 continue;
@@ -56,13 +58,12 @@ impl LuaFunc {
 
             let arg_name = match arg.name {
                 Pat::Ident(ref pat_ident) => pat_ident.ident.to_string(),
-                _ => continue
+                _ => continue,
             };
             args.push(LuaArg {
                 name: arg_name,
                 ty: LuaType::from_syn_ty(&arg.ty)?,
-                optional: false
-                // TODO: In the future, the argument should be optional if it's of type Option<T> 
+                optional: false, // TODO: In the future, the argument should be optional if it's of type Option<T>
             });
         }
 
@@ -71,7 +72,7 @@ impl LuaFunc {
             name,
             doc: None,
             return_ty,
-            args
+            args,
         })
     }
 
@@ -100,34 +101,33 @@ impl LuaFunc {
     }
 }
 
-/// In luau described as both type and table 
+/// In luau described as both type and table
 pub struct LuaStruct {
     parent: ItemParent,
     name: String,
     doc: ItemDoc,
     fields: Vec<LuaField>,
     funcs: Vec<LuaFunc>,
-    methods: Vec<LuaFunc>
+    methods: Vec<LuaFunc>,
 }
 
 pub struct LuaEnum {
     parent: ItemParent,
     name: String,
     doc: ItemDoc,
-    variants: Vec<LuaVariant>
+    variants: Vec<LuaVariant>,
 }
 
 impl LuaEnum {
     pub fn from_parsed(parsed: ParsedEnum) -> Option<Self> {
         let name = parsed.ident.to_string();
 
-        let variants = parsed.variants
+        let variants = parsed
+            .variants
             .into_iter()
-            .map(|(vident, value)| {
-                LuaVariant {
-                    name: vident.to_string(),
-                    value,
-                }
+            .map(|(vident, value)| LuaVariant {
+                name: vident.to_string(),
+                value,
             })
             .collect();
 
@@ -135,7 +135,7 @@ impl LuaEnum {
             parent: None,
             name,
             doc: None,
-            variants
+            variants,
         })
     }
 }
@@ -151,7 +151,7 @@ impl LuaExpand for LuaEnum {
             writeln!(&mut expanded, "--[[{doc}]]").unwrap();
         }
 
-        // Depending on the nesting, luau function declarations aren't the same. 
+        // Depending on the nesting, luau function declarations aren't the same.
         // Global functions are declared directly as function {name}({named args}): {ret type},
         // but nested functions (included in types or )
         if self.parent.is_some() {
@@ -195,7 +195,7 @@ pub struct LuaFile {
     pub mods: Vec<LuaModule>,
     pub funcs: Vec<LuaFunc>,
     pub impls: Vec<LuaType>,
-    pub enums: Vec<LuaEnum>
+    pub enums: Vec<LuaEnum>,
 }
 
 impl LuaExpand for LuaFunc {
@@ -211,7 +211,7 @@ impl LuaExpand for LuaFunc {
             writeln!(&mut expanded, "--[[{doc}]]").unwrap();
         }
 
-        // Depending on the nesting, luau function declarations aren't the same. 
+        // Depending on the nesting, luau function declarations aren't the same.
         // Global functions are declared directly as function {name}({named args}): {ret type},
         // but nested functions (included in types or )
         if self.parent.is_some() {

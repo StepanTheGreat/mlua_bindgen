@@ -3,26 +3,29 @@
 //! # Lua Bindgen
 //! ## Generate Lua bindings for your Rust types!
 
-use std::sync::LazyLock;
-use std::{collections::HashMap, path::PathBuf};
-use std::fs;
+use core::fmt;
 use shared::enums::{parse_enum, ParsedEnum};
 use shared::funcs::{parse_func, FuncKind, ParsedFunc};
 use shared::impls::{parse_impl, ParsedImpl};
 use shared::mods::{parse_mod, ModuleItem, ParsedModule};
-use shared::utils::{contains_attr, parse_attrs, syn_error, ItemAttrs, LastPathIdent, MLUA_BINDGEN_ATTR};
+use shared::utils::{
+    contains_attr, parse_attrs, syn_error, ItemAttrs, LastPathIdent, MLUA_BINDGEN_ATTR,
+};
+use std::fs;
+use std::sync::LazyLock;
+use std::{collections::HashMap, path::PathBuf};
 use syn::{Attribute, Type};
 use syn::{Item, ItemFn, ItemImpl};
 use types::{LuaEnum, LuaFile, LuaFunc};
 use utils::{find_attr, get_attribute_args};
 
-mod utils;
 mod types;
+mod utils;
 
 type TypeMap<'a> = HashMap<&'a str, LuaType>;
 
 // This wasn't supposed to be threaded, but that's the simplest solution for now
-static TYPE_MAP: LazyLock<TypeMap> = LazyLock::new(|| type_map());
+static TYPE_MAP: LazyLock<TypeMap> = LazyLock::new(type_map);
 
 fn type_map<'a>() -> TypeMap<'a> {
     // A lot of types here are ASSUMED to implement the mlua IntoLua trait.
@@ -49,7 +52,7 @@ fn type_map<'a>() -> TypeMap<'a> {
         LuaType::Error => (Error),
         LuaType::Thread => (Thread),
         LuaType::Userdata => (AnyUserData, LightUserData, UserDataRef, UserDataRefMut),
-        LuaType::Function => (Function) 
+        LuaType::Function => (Function)
     }
 }
 
@@ -67,52 +70,48 @@ pub enum LuaType {
     Table,
     Thread,
     Userdata,
-    Nil
+    Nil,
+}
+
+impl fmt::Display for LuaType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                LuaType::Integer => "integer".to_owned(),
+                LuaType::Number => "number".to_owned(),
+                LuaType::Boolean => "boolean".to_owned(),
+                LuaType::String => "string".to_owned(),
+                LuaType::Function => "function".to_owned(),
+                LuaType::Array(ty) => format!("{{{}}}", ty),
+                LuaType::Error => "error".to_owned(),
+                LuaType::Table => "table".to_owned(),
+                LuaType::Thread => "thread".to_owned(),
+                LuaType::Userdata => "userdata".to_owned(),
+                LuaType::Nil => "nil".to_owned(),
+            }
+        )
+    }
 }
 
 impl LuaType {
-    pub fn to_string(&self) -> String {
-        match self {
-            LuaType::Integer => "integer".to_owned(),
-            LuaType::Number => "number".to_owned(),
-            LuaType::Boolean => "boolean".to_owned(),
-            LuaType::String => "string".to_owned(),
-            LuaType::Function => "function".to_owned(),
-            LuaType::Array(ty) => format!("{{{}}}", ty.to_string()),
-            LuaType::Error => "error".to_owned(),
-            LuaType::Table => "table".to_owned(),
-            LuaType::Thread => "thread".to_owned(),
-            LuaType::Userdata => "userdata".to_owned(),
-            LuaType::Nil => "nil".to_owned()
-        }
-    }
-
     /// Stringify the ident token, then try to match it against the TYPE_MAP.
     /// If successful - returns [`Some<Self>`]
     pub fn from_syn_ident(ident: &syn::Ident) -> Option<Self> {
-        let s = ident.to_string();
-        match TYPE_MAP.get(s.as_str()) {
-            Some(lua_ty) => Some(lua_ty.clone()),
-            None => None
-        }
+        TYPE_MAP.get(ident.to_string().as_str()).cloned()
     }
 
     pub fn from_syn_ty(ty: &Type) -> Option<Self> {
         match ty {
             Type::Array(ty_arr) => {
-                match Self::from_syn_ty(&ty_arr.elem) {
-                    Some(inner) => Some(Self::Array(Box::new(inner))),
-                    None => None
-                }
-            },
+                Self::from_syn_ty(&ty_arr.elem).map(|inner| Self::Array(Box::new(inner)))
+            }
             Type::Path(ty_path) => {
                 let ident = ty_path.path.last_ident();
-                match Self::from_syn_ident(ident) {
-                    Some(ident) => Some(ident),
-                    None => None
-                }
-            },
-            _ => unimplemented!("For now only arrays and type paths are supported")
+                Self::from_syn_ident(ident)
+            }
+            _ => unimplemented!("For now only arrays and type paths are supported"),
         }
     }
 }
@@ -122,12 +121,11 @@ pub struct ParsedFile {
     pub mods: Vec<ParsedModule>,
     pub funcs: Vec<ParsedFunc>,
     pub impls: Vec<ParsedImpl>,
-    pub enums: Vec<ParsedEnum>
+    pub enums: Vec<ParsedEnum>,
 }
 
 impl ParsedFile {
     pub fn transform_to_lua(self) -> Option<LuaFile> {
-        
         let mods = Vec::new();
         let impls = Vec::new();
         let mut enums = Vec::new();
@@ -137,20 +135,20 @@ impl ParsedFile {
             enums.push(LuaEnum::from_parsed(enm)?);
         }
 
-        for func  in self.funcs {
+        for func in self.funcs {
             funcs.push(LuaFunc::from_parsed(func)?);
         }
-        
+
         Some(LuaFile {
             mods,
             funcs,
             impls,
-            enums
+            enums,
         })
     }
 }
 
-/// Find an [`MLUA_BINDGEN_ATTR`] argument, then convert it into tokens, 
+/// Find an [`MLUA_BINDGEN_ATTR`] argument, then convert it into tokens,
 /// then parse it into [`ItemAttrs`]. It can fail at any stage and return [`None`]
 fn get_bindgen_attrs(item_attrs: &[Attribute]) -> Option<ItemAttrs> {
     let attr = find_attr(item_attrs, MLUA_BINDGEN_ATTR)?;
@@ -159,7 +157,7 @@ fn get_bindgen_attrs(item_attrs: &[Attribute]) -> Option<ItemAttrs> {
 
     match parse_attrs(attr_tokens) {
         Ok(attrs) => Some(attrs),
-        Err(err) => None
+        Err(err) => None,
     }
 }
 
@@ -176,23 +174,23 @@ fn parse_file(file: syn::File) -> syn::Result<ParsedFile> {
                 if let Some(attrs) = get_bindgen_attrs(&mod_item.attrs) {
                     mods.push(parse_mod(attrs, mod_item)?);
                 }
-            },
+            }
             Item::Fn(fn_item) => {
                 if contains_attr(&fn_item.attrs, MLUA_BINDGEN_ATTR) {
                     funcs.push(parse_func(fn_item, &FuncKind::Func)?);
                 }
-            },
+            }
             Item::Impl(impl_item) => {
                 if contains_attr(&impl_item.attrs, MLUA_BINDGEN_ATTR) {
                     impls.push(parse_impl(impl_item)?);
                 }
-            },
+            }
             Item::Enum(enum_item) => {
                 if contains_attr(&enum_item.attrs, MLUA_BINDGEN_ATTR) {
                     enums.push(parse_enum(enum_item)?);
                 }
             }
-            _ => continue
+            _ => continue,
         };
     }
 
@@ -200,7 +198,7 @@ fn parse_file(file: syn::File) -> syn::Result<ParsedFile> {
         mods,
         impls,
         funcs,
-        enums
+        enums,
     })
 }
 
