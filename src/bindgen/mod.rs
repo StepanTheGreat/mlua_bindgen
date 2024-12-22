@@ -40,8 +40,8 @@ fn type_map<'a>() -> TypeMap<'a> {
     }
 
     type_map! {
-        LuaType::Integer => (i8, i16, i32, i64, i128, isize),
-        LuaType::Integer => (u8, u16, u32, u64, u128, usize),
+        LuaType::Number => (i8, i16, i32, i64, i128, isize),
+        LuaType::Number => (u8, u16, u32, u64, u128, usize),
         LuaType::Number  => (f32, f64),
         LuaType::Boolean => (bool),
         LuaType::String  => (Box<str>, CString, String, OsString, PathBuf, BString),
@@ -78,7 +78,7 @@ impl LuaType {
             LuaType::Boolean => "boolean".to_owned(),
             LuaType::String => "string".to_owned(),
             LuaType::Function => "function".to_owned(),
-            LuaType::Array(_ty) => "table".to_owned(),
+            LuaType::Array(ty) => format!("{{{}}}", ty.to_string()),
             LuaType::Error => "error".to_owned(),
             LuaType::Table => "table".to_owned(),
             LuaType::Thread => "thread".to_owned(),
@@ -130,8 +130,13 @@ impl ParsedFile {
         
         let mods = Vec::new();
         let impls = Vec::new();
-        let enums = Vec::new();
+        let mut enums = Vec::new();
         let mut funcs = Vec::new();
+
+        for enm in self.enums {
+            enums.push(LuaEnum::from_parsed(enm)?);
+        }
+
         for func  in self.funcs {
             funcs.push(LuaFunc::from_parsed(func)?);
         }

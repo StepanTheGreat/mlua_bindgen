@@ -2,7 +2,7 @@ use std::fmt::Write;
 use shared::{enums::{LuaVariantType, ParsedEnum}, funcs::ParsedFunc};
 use syn::Pat;
 
-use super::LuaType;
+use super::{utils::add_tabs, LuaType};
 
 /// Describes an item's parent. [`None`] means it's a global
 pub type ItemParent = Option<String>;
@@ -25,7 +25,7 @@ pub struct LuaField {
 
 /// A field for luau enums
 pub struct LuaVariant {
-    pub ame: String,
+    pub name: String,
     pub value: LuaVariantType
 }
 
@@ -43,16 +43,25 @@ impl LuaFunc {
         let name = parsed.name.to_string();
         let return_ty = LuaType::from_syn_ty(&parsed.return_ty)?;
 
+        // Get the amount of required arguments by mlua. These have no use in luau declaration
+        let skip_args = parsed.req_arg_count();
+
         let mut args = Vec::new();
-        for arg in parsed.args.iter() {
+        for (ind, arg) in parsed.args.iter().enumerate() {
+
+            // If the index is smaller than the amount of required arguments - skip
+            if ind < skip_args {
+                continue;
+            }
+
             let arg_name = match arg.name {
                 Pat::Ident(ref pat_ident) => pat_ident.ident.to_string(),
-                _ => unreachable!("An argument name is supposed to be of type Ident")
+                _ => continue
             };
             args.push(LuaArg {
                 name: arg_name,
                 ty: LuaType::from_syn_ty(&arg.ty)?,
-                optional: true
+                optional: false
                 // TODO: In the future, the argument should be optional if it's of type Option<T> 
             });
         }
@@ -75,7 +84,7 @@ impl LuaFunc {
             let name = &arg.name;
             let ty = arg.ty.to_string();
             let opt = if arg.optional { "?" } else { "" };
-            let comma = if ind == 0 { ", " } else { "" };
+            let comma = if ind > 0 { ", " } else { "" };
             string += &format!("{comma}{name}: {ty}{opt}");
         }
         string
@@ -106,6 +115,58 @@ pub struct LuaEnum {
     name: String,
     doc: ItemDoc,
     variants: Vec<LuaVariant>
+}
+
+impl LuaEnum {
+    pub fn from_parsed(parsed: ParsedEnum) -> Option<Self> {
+        let name = parsed.ident.to_string();
+
+        let variants = parsed.variants
+            .into_iter()
+            .map(|(vident, value)| {
+                LuaVariant {
+                    name: vident.to_string(),
+                    value,
+                }
+            })
+            .collect();
+
+        Some(Self {
+            parent: None,
+            name,
+            doc: None,
+            variants
+        })
+    }
+}
+
+impl LuaExpand for LuaEnum {
+    fn lua_expand(&self) -> String {
+        let mut expanded = String::new();
+
+        let name = &self.name;
+
+        // First we write the doc string to our function, if it is present
+        if let Some(ref doc) = self.doc {
+            writeln!(&mut expanded, "--[[{doc}]]").unwrap();
+        }
+
+        // Depending on the nesting, luau function declarations aren't the same. 
+        // Global functions are declared directly as function {name}({named args}): {ret type},
+        // but nested functions (included in types or )
+        if self.parent.is_some() {
+            writeln!(&mut expanded, "{name}: {{").unwrap();
+        } else {
+            writeln!(&mut expanded, "declare {name}: {{").unwrap();
+        }
+
+        for var in self.variants.iter() {
+            writeln!(&mut expanded, "    {}: number,", var.name).unwrap();
+        }
+        writeln!(&mut expanded, "}}").unwrap();
+
+        expanded
+    }
 }
 
 /// Just an item that contains module name. It doesn't own anything, lua items describe its relationship
@@ -139,7 +200,7 @@ pub struct LuaFile {
 
 impl LuaExpand for LuaFunc {
     fn lua_expand(&self) -> String {
-        let mut s = String::new();
+        let mut expanded = String::new();
 
         let name = &self.name;
         let ret_ty = &self.return_ty.to_string();
@@ -147,18 +208,37 @@ impl LuaExpand for LuaFunc {
 
         // First we write the doc string to our function, if it is present
         if let Some(ref doc) = self.doc {
-            writeln!(&mut s, "--[[{doc}]]").unwrap();
+            writeln!(&mut expanded, "--[[{doc}]]").unwrap();
         }
 
         // Depending on the nesting, luau function declarations aren't the same. 
         // Global functions are declared directly as function {name}({named args}): {ret type},
         // but nested functions (included in types or )
         if self.parent.is_some() {
-            writeln!(&mut s, "{name}: ({args}) -> {ret_ty}").unwrap();
+            writeln!(&mut expanded, "{name}: ({args}) -> {ret_ty}").unwrap();
         } else {
-            writeln!(&mut s, "declare function {name}({args}): {ret_ty}").unwrap();
+            writeln!(&mut expanded, "declare function {name}({args}): {ret_ty}").unwrap();
         }
 
-        s
+        expanded
+    }
+}
+
+impl LuaFile {
+    /// Write all its contents to a specified type declaration file path
+    pub fn write(self, path: impl AsRef<std::path::Path>) {
+        let mut src = String::new();
+
+        for enm in self.enums {
+            let expanded = enm.lua_expand();
+            writeln!(&mut src, "{}", expanded).unwrap();
+        }
+
+        for func in self.funcs {
+            let expanded = func.lua_expand();
+            writeln!(&mut src, "{}", expanded).unwrap();
+        }
+
+        std::fs::write(path, src).unwrap();
     }
 }

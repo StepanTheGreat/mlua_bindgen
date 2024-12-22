@@ -73,14 +73,27 @@ mod math {
             Ok(())
         }
     }
+}
 
-    /// Adds something to a global counter
-    #[mlua_bindgen]
-    pub fn add_to_counter(_: &mlua::Lua, what: u32) {
-        COUNTER.fetch_add(what, Ordering::Relaxed);
+#[mlua_bindgen]
+enum GreatEnum {
+    Var1,
+    Var2,
+    Var4 = 3,
+    Var100 = 100,
+    Var101,
+}
 
-        Ok(())
-    }
+/// Adds something to a global counter
+#[mlua_bindgen]
+pub fn do_something(_: &mlua::Lua, what: u32) -> f32 {
+    Ok(0.75)
+}
+
+/// Adds something to a global counter
+#[mlua_bindgen]
+pub fn do_something_better(_: &mlua::Lua, what: u32, other: String) -> [String; 3] {
+    Ok(["".to_owned(), "".to_owned(), "".to_owned()])
 }
 
 fn main() {

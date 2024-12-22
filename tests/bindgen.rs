@@ -7,5 +7,7 @@ use mlua_bindgen::bindgen;
 fn main() {
     bindgen::load_file("./tests/bindgen/target.rs")
         .unwrap()
-        .transform_to_lua();
+        .transform_to_lua()
+        .unwrap()
+        .write("test.d.luau");
 }
