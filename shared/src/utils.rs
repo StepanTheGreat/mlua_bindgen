@@ -109,3 +109,14 @@ pub fn contains_attr(attrs: &[syn::Attribute], needed: &str) -> bool {
 pub fn str_to_ident(input: &str) -> syn::Ident {
     syn::Ident::new(input, proc_macro2::Span::call_site())
 }
+
+pub trait LastPathIdent {
+    /// Get the last ident segment form the path.
+    fn last_ident(&self) -> &Ident;
+}
+
+impl LastPathIdent for syn::Path {
+    fn last_ident(&self) -> &Ident {
+        self.segments.last().map(|seg| &seg.ident).unwrap()
+    }
+}

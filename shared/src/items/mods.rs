@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use syn::{Ident, Item, ItemMod, Path, Type, Visibility};
 
-use crate::utils::{contains_attr, str_to_ident, syn_error, ItemAttrs, MLUA_BINDGEN_ATTR};
+use crate::utils::{contains_attr, str_to_ident, syn_error, ItemAttrs, LastPathIdent, MLUA_BINDGEN_ATTR};
 
 pub const MODULE_SUFFIX: &str = "_module";
 
@@ -24,7 +24,7 @@ impl ModulePath {
     /// Try to construct the module path from a path. It will fail if the module path doesn't contain the
     /// module suffix at the end.
     pub fn from_path(path: Path) -> syn::Result<Self> {
-        let ident = path.segments.last().map(|seg| &seg.ident).unwrap();
+        let ident = path.last_ident();
         let name = ident.to_string();
 
         let split_pos = match name.rfind(MODULE_SUFFIX) {
