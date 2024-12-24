@@ -1,11 +1,13 @@
 use shared::{
-    enums::{LuaVariantType, ParsedEnum},
-    funcs::ParsedFunc, impls::{FieldKind, ParsedImpl}, ToTokens,
+    enums::ParsedEnum,
+    funcs::ParsedFunc,
+    impls::{FieldKind, ParsedImpl},
+    ToTokens,
 };
 use std::fmt::Write;
-use syn::{Field, Pat};
+use syn::Pat;
 
-use super::{utils::add_tabs, LuaType};
+use super::LuaType;
 
 /// Describes an item's parent. [`None`] means it's a global
 pub type ItemParent = Option<String>;
@@ -29,7 +31,6 @@ pub struct LuaField {
 /// A field for luau enums
 pub struct LuaVariant {
     pub name: String,
-    pub value: LuaVariantType,
 }
 
 /// A luau function that contains its name, doc, return type, named [`LuaArg`] and its parent module name
@@ -100,7 +101,7 @@ impl LuaFunc {
         format!("({args}) -> {return_ty}")
     }
 
-    /// The same as [`LuaFunc::as_ty`], but for impl functions (class functions or methods). 
+    /// The same as [`LuaFunc::as_ty`], but for impl functions (class functions or methods).
     /// It takes a type name as an argument, and will replace all `Self` keywords with the name
     /// of the type.
     pub fn as_ty_impl(&self, ty: &String, is_method: bool) -> String {
@@ -108,7 +109,7 @@ impl LuaFunc {
 
         // We use this ugly and slow method for now, I'll change it in the future.
         // We have to replace all Self arguments with the name type, since Self is not recognized
-        // in luau as a reference to a self type. 
+        // in luau as a reference to a self type.
         let args = args.replace("Self", ty);
 
         let mut return_ty = self.return_ty.to_string();
@@ -116,8 +117,16 @@ impl LuaFunc {
             return_ty = ty.to_string();
         }
 
-        let self_arg = if is_method { format!("self: {ty}") } else { "".to_owned() };
-        let self_comma = if is_method && args.len() > 0 { ", ".to_owned() } else { "".to_owned() };
+        let self_arg = if is_method {
+            format!("self: {ty}")
+        } else {
+            "".to_owned()
+        };
+        let self_comma = if is_method && !args.is_empty() {
+            ", ".to_owned()
+        } else {
+            "".to_owned()
+        };
 
         // TODO: Sometimes arguments can be empty, so a trailing comma can cause issues in the future.
         format!("({self_arg}{self_comma}{args}) -> {return_ty}")
@@ -158,7 +167,7 @@ impl LuaStruct {
                 let fty = LuaType::from_syn_ty(&field.func.return_ty);
                 fields.push(LuaField {
                     name: fname,
-                    ty: fty
+                    ty: fty,
                 });
             }
         }
@@ -169,7 +178,7 @@ impl LuaStruct {
             doc: None,
             funcs,
             fields,
-            methods
+            methods,
         })
     }
 }
@@ -191,12 +200,12 @@ impl LuaExpand for LuaStruct {
 
         for field in self.fields.iter() {
             let fname = field.name.clone();
-            let fty = field.ty.clone(); 
+            let fty = field.ty.clone();
             writeln!(&mut global_ty, "    {fname}: {fty},").unwrap();
         }
 
         for func in self.methods.iter() {
-            let fname=  func.name.clone();
+            let fname = func.name.clone();
             let fty = func.as_ty_impl(name, true);
             writeln!(&mut global_ty, "    {fname}: {fty},").unwrap();
         }
@@ -216,7 +225,7 @@ impl LuaExpand for LuaStruct {
         }
 
         for func in self.funcs.iter() {
-            let fname=  func.name.clone();
+            let fname = func.name.clone();
             let fty = func.as_ty_impl(name, false);
             writeln!(&mut expanded, "    {fname}: {fty},").unwrap();
         }
@@ -243,9 +252,8 @@ impl LuaEnum {
         let variants = parsed
             .variants
             .into_iter()
-            .map(|(vident, value)| LuaVariant {
+            .map(|(vident, _)| LuaVariant {
                 name: vident.to_string(),
-                value,
             })
             .collect();
 
@@ -293,14 +301,6 @@ pub struct LuaModule {
     parent: ItemParent,
     doc: ItemDoc,
     name: String,
-}
-
-pub trait LuaItem {
-    /// Get item's name
-    fn name(&self) -> &str;
-
-    /// Get item's parent (If it is present)
-    fn parent(&self) -> ItemParent;
 }
 
 /// I'm not sure thy it's a trait, but okay - maybe for consistency.

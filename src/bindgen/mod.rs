@@ -8,14 +8,12 @@ use shared::enums::{parse_enum, ParsedEnum};
 use shared::funcs::{parse_func, FuncKind, ParsedFunc};
 use shared::impls::{parse_impl, ParsedImpl};
 use shared::mods::{parse_mod, ParsedModule};
-use shared::utils::{
-    contains_attr, parse_attrs, ItemAttrs, LastPathIdent, MLUA_BINDGEN_ATTR,
-};
+use shared::utils::{contains_attr, parse_attrs, ItemAttrs, LastPathIdent, MLUA_BINDGEN_ATTR};
 use std::fs;
 use std::sync::LazyLock;
 use std::{collections::HashMap, path::PathBuf};
-use syn::{Attribute, Type};
 use syn::Item;
+use syn::{Attribute, Type};
 use types::{LuaEnum, LuaFile, LuaFunc, LuaStruct};
 use utils::{find_attr, get_attribute_args};
 
@@ -75,9 +73,9 @@ pub enum LuaType {
     /// Void represents an absence of return type `()` (in both Luau and Rust)
     Void,
     /// Custom types are new types defined by the user of mlua itself.
-    /// These are passed directly as string, as they're simply a reference to a 
+    /// These are passed directly as string, as they're simply a reference to a
     /// defined type (i.e. through [`mlua_bindgen`] macro)
-    Custom(String)
+    Custom(String),
 }
 
 impl fmt::Display for LuaType {
@@ -98,7 +96,7 @@ impl fmt::Display for LuaType {
                 LuaType::Userdata => "userdata".to_owned(),
                 LuaType::Nil => "nil".to_owned(),
                 LuaType::Void => "()".to_owned(),
-                LuaType::Custom(ty) => ty.clone()
+                LuaType::Custom(ty) => ty.clone(),
             }
         )
     }
@@ -110,7 +108,7 @@ impl LuaType {
     pub fn from_syn_ident(ident: &syn::Ident) -> Self {
         match TYPE_MAP.get(ident.to_string().as_str()) {
             Some(ty) => ty.clone(),
-            None => LuaType::Custom(ident.to_string())
+            None => LuaType::Custom(ident.to_string()),
         }
     }
 
@@ -118,25 +116,19 @@ impl LuaType {
     /// it's likely it's a custom type, so we'll just make a new one.
     pub fn from_syn_ty(ty: &Type) -> Self {
         match ty {
-            Type::Array(ty_arr) => {
-                Self::Array(Box::new(
-                    Self::from_syn_ty(&ty_arr.elem)
-                ))
-            },
+            Type::Array(ty_arr) => Self::Array(Box::new(Self::from_syn_ty(&ty_arr.elem))),
             Type::Path(ty_path) => {
                 let ident = ty_path.path.last_ident();
                 Self::from_syn_ident(ident)
-            },
-            Type::Reference(ty_ref) => {
-                Self::from_syn_ty(&ty_ref.elem)
-            },
+            }
+            Type::Reference(ty_ref) => Self::from_syn_ty(&ty_ref.elem),
             Type::Tuple(tup) => {
-                if tup.elems.len() > 0 {
+                if !tup.elems.is_empty() {
                     unimplemented!("Multi-value tuples aren't supported currently");
                 } else {
                     Self::Void
                 }
-            },
+            }
             _ => unimplemented!("For now only arrays and type paths are supported"),
         }
     }
