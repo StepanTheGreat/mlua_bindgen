@@ -3,6 +3,10 @@ name = "mlua_bindgen"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+bindgen = []
+
 [dependencies]
 mlua = { workspace = true }
 syn = { workspace = true }
