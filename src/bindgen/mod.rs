@@ -7,16 +7,16 @@ use core::fmt;
 use shared::enums::{parse_enum, ParsedEnum};
 use shared::funcs::{parse_func, FuncKind, ParsedFunc};
 use shared::impls::{parse_impl, ParsedImpl};
-use shared::mods::{parse_mod, ModuleItem, ParsedModule};
+use shared::mods::{parse_mod, ParsedModule};
 use shared::utils::{
-    contains_attr, parse_attrs, syn_error, ItemAttrs, LastPathIdent, MLUA_BINDGEN_ATTR,
+    contains_attr, parse_attrs, ItemAttrs, LastPathIdent, MLUA_BINDGEN_ATTR,
 };
 use std::fs;
 use std::sync::LazyLock;
 use std::{collections::HashMap, path::PathBuf};
 use syn::{Attribute, Type};
-use syn::{Item, ItemFn, ItemImpl};
-use types::{LuaEnum, LuaFile, LuaFunc};
+use syn::Item;
+use types::{LuaEnum, LuaFile, LuaFunc, LuaStruct};
 use utils::{find_attr, get_attribute_args};
 
 mod types;
@@ -52,7 +52,8 @@ fn type_map<'a>() -> TypeMap<'a> {
         LuaType::Error => (Error),
         LuaType::Thread => (Thread),
         LuaType::Userdata => (AnyUserData, LightUserData, UserDataRef, UserDataRefMut),
-        LuaType::Function => (Function)
+        LuaType::Function => (Function),
+        LuaType::Void => (())
     }
 }
 
@@ -71,6 +72,12 @@ pub enum LuaType {
     Thread,
     Userdata,
     Nil,
+    /// Void represents an absence of return type `()` (in both Luau and Rust)
+    Void,
+    /// Custom types are new types defined by the user of mlua itself.
+    /// These are passed directly as string, as they're simply a reference to a 
+    /// defined type (i.e. through [`mlua_bindgen`] macro)
+    Custom(String)
 }
 
 impl fmt::Display for LuaType {
@@ -90,6 +97,8 @@ impl fmt::Display for LuaType {
                 LuaType::Thread => "thread".to_owned(),
                 LuaType::Userdata => "userdata".to_owned(),
                 LuaType::Nil => "nil".to_owned(),
+                LuaType::Void => "()".to_owned(),
+                LuaType::Custom(ty) => ty.clone()
             }
         )
     }
@@ -98,19 +107,36 @@ impl fmt::Display for LuaType {
 impl LuaType {
     /// Stringify the ident token, then try to match it against the TYPE_MAP.
     /// If successful - returns [`Some<Self>`]
-    pub fn from_syn_ident(ident: &syn::Ident) -> Option<Self> {
-        TYPE_MAP.get(ident.to_string().as_str()).cloned()
+    pub fn from_syn_ident(ident: &syn::Ident) -> Self {
+        match TYPE_MAP.get(ident.to_string().as_str()) {
+            Some(ty) => ty.clone(),
+            None => LuaType::Custom(ident.to_string())
+        }
     }
 
-    pub fn from_syn_ty(ty: &Type) -> Option<Self> {
+    /// Try to convert a syn type to a [`LuaType`]. If the type isn't recognized,
+    /// it's likely it's a custom type, so we'll just make a new one.
+    pub fn from_syn_ty(ty: &Type) -> Self {
         match ty {
             Type::Array(ty_arr) => {
-                Self::from_syn_ty(&ty_arr.elem).map(|inner| Self::Array(Box::new(inner)))
-            }
+                Self::Array(Box::new(
+                    Self::from_syn_ty(&ty_arr.elem)
+                ))
+            },
             Type::Path(ty_path) => {
                 let ident = ty_path.path.last_ident();
                 Self::from_syn_ident(ident)
-            }
+            },
+            Type::Reference(ty_ref) => {
+                Self::from_syn_ty(&ty_ref.elem)
+            },
+            Type::Tuple(tup) => {
+                if tup.elems.len() > 0 {
+                    unimplemented!("Multi-value tuples aren't supported currently");
+                } else {
+                    Self::Void
+                }
+            },
             _ => unimplemented!("For now only arrays and type paths are supported"),
         }
     }
@@ -127,16 +153,20 @@ pub struct ParsedFile {
 impl ParsedFile {
     pub fn transform_to_lua(self) -> Option<LuaFile> {
         let mods = Vec::new();
-        let impls = Vec::new();
+        let mut impls = Vec::new();
         let mut enums = Vec::new();
         let mut funcs = Vec::new();
 
-        for enm in self.enums {
-            enums.push(LuaEnum::from_parsed(enm)?);
+        for parsed_enum in self.enums {
+            enums.push(LuaEnum::from_parsed(parsed_enum)?);
         }
 
-        for func in self.funcs {
-            funcs.push(LuaFunc::from_parsed(func)?);
+        for parsed_impl in self.impls {
+            impls.push(LuaStruct::from_parsed(parsed_impl)?);
+        }
+
+        for parsed_func in self.funcs {
+            funcs.push(LuaFunc::from_parsed(parsed_func)?);
         }
 
         Some(LuaFile {
@@ -157,7 +187,7 @@ fn get_bindgen_attrs(item_attrs: &[Attribute]) -> Option<ItemAttrs> {
 
     match parse_attrs(attr_tokens) {
         Ok(attrs) => Some(attrs),
-        Err(err) => None,
+        Err(_err) => None,
     }
 }
 

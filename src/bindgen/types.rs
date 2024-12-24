@@ -1,9 +1,9 @@
 use shared::{
     enums::{LuaVariantType, ParsedEnum},
-    funcs::ParsedFunc,
+    funcs::ParsedFunc, impls::{FieldKind, ParsedImpl}, ToTokens,
 };
 use std::fmt::Write;
-use syn::Pat;
+use syn::{Field, Pat};
 
 use super::{utils::add_tabs, LuaType};
 
@@ -44,7 +44,7 @@ pub struct LuaFunc {
 impl LuaFunc {
     pub fn from_parsed(parsed: ParsedFunc) -> Option<Self> {
         let name = parsed.name.to_string();
-        let return_ty = LuaType::from_syn_ty(&parsed.return_ty)?;
+        let return_ty = LuaType::from_syn_ty(&parsed.return_ty);
 
         // Get the amount of required arguments by mlua. These have no use in luau declaration
         let skip_args = parsed.req_arg_count();
@@ -62,7 +62,7 @@ impl LuaFunc {
             };
             args.push(LuaArg {
                 name: arg_name,
-                ty: LuaType::from_syn_ty(&arg.ty)?,
+                ty: LuaType::from_syn_ty(&arg.ty),
                 optional: false, // TODO: In the future, the argument should be optional if it's of type Option<T>
             });
         }
@@ -99,6 +99,29 @@ impl LuaFunc {
         let return_ty = self.return_ty.to_string();
         format!("({args}) -> {return_ty}")
     }
+
+    /// The same as [`LuaFunc::as_ty`], but for impl functions (class functions or methods). 
+    /// It takes a type name as an argument, and will replace all `Self` keywords with the name
+    /// of the type.
+    pub fn as_ty_impl(&self, ty: &String, is_method: bool) -> String {
+        let args = self.get_fmt_args();
+
+        // We use this ugly and slow method for now, I'll change it in the future.
+        // We have to replace all Self arguments with the name type, since Self is not recognized
+        // in luau as a reference to a self type. 
+        let args = args.replace("Self", ty);
+
+        let mut return_ty = self.return_ty.to_string();
+        if return_ty == "Self" {
+            return_ty = ty.to_string();
+        }
+
+        let self_arg = if is_method { format!("self: {ty}") } else { "".to_owned() };
+        let self_comma = if is_method && args.len() > 0 { ", ".to_owned() } else { "".to_owned() };
+
+        // TODO: Sometimes arguments can be empty, so a trailing comma can cause issues in the future.
+        format!("({self_arg}{self_comma}{args}) -> {return_ty}")
+    }
 }
 
 /// In luau described as both type and table
@@ -109,6 +132,101 @@ pub struct LuaStruct {
     fields: Vec<LuaField>,
     funcs: Vec<LuaFunc>,
     methods: Vec<LuaFunc>,
+}
+
+impl LuaStruct {
+    pub fn from_parsed(parsed: ParsedImpl) -> Option<Self> {
+        let name = parsed.name.to_token_stream().to_string();
+
+        let mut funcs = Vec::new();
+        let mut fields = Vec::new();
+        let mut methods = Vec::new();
+
+        for func in parsed.funcs {
+            let lfunc = LuaFunc::from_parsed(func.func)?;
+            funcs.push(lfunc);
+        }
+
+        for method in parsed.methods {
+            let lmethod = LuaFunc::from_parsed(method.func)?;
+            methods.push(lmethod);
+        }
+
+        for field in parsed.fields {
+            if let FieldKind::Getter = field.kind {
+                let fname = field.func.name.to_string();
+                let fty = LuaType::from_syn_ty(&field.func.return_ty);
+                fields.push(LuaField {
+                    name: fname,
+                    ty: fty
+                });
+            }
+        }
+
+        Some(Self {
+            parent: None,
+            name,
+            doc: None,
+            funcs,
+            fields,
+            methods
+        })
+    }
+}
+
+impl LuaExpand for LuaStruct {
+    fn lua_expand(&self) -> (String, String) {
+        let mut expanded = String::new();
+        let mut global_ty = String::new();
+
+        let name = &self.name;
+
+        // First we expand the type
+
+        if let Some(ref doc) = self.doc {
+            writeln!(&mut global_ty, "--[[{doc}]]").unwrap();
+        }
+
+        writeln!(&mut global_ty, "export type {name} = {{").unwrap();
+
+        for field in self.fields.iter() {
+            let fname = field.name.clone();
+            let fty = field.ty.clone(); 
+            writeln!(&mut global_ty, "    {fname}: {fty},").unwrap();
+        }
+
+        for func in self.methods.iter() {
+            let fname=  func.name.clone();
+            let fty = func.as_ty_impl(name, true);
+            writeln!(&mut global_ty, "    {fname}: {fty},").unwrap();
+        }
+
+        writeln!(&mut global_ty, "}}").unwrap();
+
+        // Now we expand the table
+
+        if let Some(ref doc) = self.doc {
+            writeln!(&mut expanded, "--[[{doc}]]").unwrap();
+        }
+
+        if self.parent.is_some() {
+            writeln!(&mut expanded, "{name}: {{").unwrap();
+        } else {
+            writeln!(&mut expanded, "declare {name}: {{").unwrap();
+        }
+
+        for func in self.funcs.iter() {
+            let fname=  func.name.clone();
+            let fty = func.as_ty_impl(name, false);
+            writeln!(&mut expanded, "    {fname}: {fty},").unwrap();
+        }
+
+        writeln!(&mut expanded, "}}").unwrap();
+
+        // Now finally return
+
+        (global_ty, expanded)
+    }
 }
 
 pub struct LuaEnum {
@@ -141,7 +259,7 @@ impl LuaEnum {
 }
 
 impl LuaExpand for LuaEnum {
-    fn lua_expand(&self) -> String {
+    fn lua_expand(&self) -> (String, String) {
         let mut expanded = String::new();
 
         let name = &self.name;
@@ -165,7 +283,7 @@ impl LuaExpand for LuaEnum {
         }
         writeln!(&mut expanded, "}}").unwrap();
 
-        expanded
+        (String::new(), expanded)
     }
 }
 
@@ -185,8 +303,12 @@ pub trait LuaItem {
     fn parent(&self) -> ItemParent;
 }
 
+/// I'm not sure thy it's a trait, but okay - maybe for consistency.
 pub trait LuaExpand {
-    fn lua_expand(&self) -> String;
+    /// Lua expand will take a reference to self, and expand to 2 strings:
+    /// 1. A global declaration (for example `export type`)
+    /// 2. A nested declaration (for modules)
+    fn lua_expand(&self) -> (String, String);
 }
 
 /// Describes a lua file, which basically is similar to [`ParsedFile`], but contains
@@ -194,12 +316,12 @@ pub trait LuaExpand {
 pub struct LuaFile {
     pub mods: Vec<LuaModule>,
     pub funcs: Vec<LuaFunc>,
-    pub impls: Vec<LuaType>,
+    pub impls: Vec<LuaStruct>,
     pub enums: Vec<LuaEnum>,
 }
 
 impl LuaExpand for LuaFunc {
-    fn lua_expand(&self) -> String {
+    fn lua_expand(&self) -> (String, String) {
         let mut expanded = String::new();
 
         let name = &self.name;
@@ -220,7 +342,7 @@ impl LuaExpand for LuaFunc {
             writeln!(&mut expanded, "declare function {name}({args}): {ret_ty}").unwrap();
         }
 
-        expanded
+        (String::new(), expanded)
     }
 }
 
@@ -229,13 +351,19 @@ impl LuaFile {
     pub fn write(self, path: impl AsRef<std::path::Path>) {
         let mut src = String::new();
 
+        for strct in self.impls {
+            let (global_expanded, expanded) = strct.lua_expand();
+            writeln!(&mut src, "{}", global_expanded).unwrap();
+            writeln!(&mut src, "{}", expanded).unwrap();
+        }
+
         for enm in self.enums {
-            let expanded = enm.lua_expand();
+            let (_, expanded) = enm.lua_expand();
             writeln!(&mut src, "{}", expanded).unwrap();
         }
 
         for func in self.funcs {
-            let expanded = func.lua_expand();
+            let (_, expanded) = func.lua_expand();
             writeln!(&mut src, "{}", expanded).unwrap();
         }
 

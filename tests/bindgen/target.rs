@@ -76,6 +76,52 @@ mod math {
 }
 
 #[mlua_bindgen]
+impl Vector {
+    #[func]
+    fn new(_: _, x: f32, y: f32) -> Self {
+        Ok(Self::new(x, y))
+    }
+
+    #[method]
+    fn add(_: _, this: &Self, with: Self) -> Self {
+        let res = Self {
+            x: this.x + with.x,
+            y: this.y + with.y,
+        };
+
+        Ok(res)
+    }
+
+    #[method]
+    fn hello(_: _, this: &Self) {
+        // Do something
+        Ok(())
+    }
+
+    #[get]
+    fn x(_: _, this: &Self) -> f32 {
+        Ok(this.x)
+    }
+
+    #[get]
+    fn y(_: _, this: &Self) -> f32 {
+        Ok(this.y)
+    }
+
+    #[set]
+    fn x(_: _, this: &mut Self, to: f32) {
+        this.x = to;
+        Ok(())
+    }
+
+    #[set]
+    fn y(_: _, this: &mut Self, to: f32) {
+        this.y = to;
+        Ok(())
+    }
+}
+
+#[mlua_bindgen]
 enum GreatEnum {
     Var1,
     Var2,
