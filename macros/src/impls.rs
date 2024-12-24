@@ -62,7 +62,7 @@ pub fn expand_impl_func(input: ParsedImplFunc) -> TokenStream2 {
             );
         },
         FuncKind::MethodMut => quote! {
-            fields.add_method_mut::<_, (#(#user_arg_types), *)>(
+            methods.add_method_mut::<_, (#(#user_arg_types), *), #return_ty>(
                 stringify!(#name),
                 |#(#req_arg_names), *, (#(#user_arg_names), *)| #block
             );

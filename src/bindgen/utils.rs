@@ -25,7 +25,7 @@ pub fn find_attr<'a>(attrs: &'a [syn::Attribute], needed: &str) -> Option<&'a At
 pub fn add_tabs(s: String, amount: usize) -> String {
     let tab = TAB.repeat(amount);
     s.lines().fold(String::new(), |mut s, line| {
-        let _ = write!(s, "{tab}{line}");
+        let _ = writeln!(s, "{tab}{line}");
         s
     })
 }

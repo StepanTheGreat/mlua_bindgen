@@ -16,6 +16,16 @@ impl ResId {
     fn id(_: &mlua::Lua, this: &Self) -> u64 {
         Ok(this.id)
     }
+
+    #[method]
+    fn do_something(_: &mlua::Lua, this: &Self) {
+        Ok(())
+    }
+
+    #[method_mut]
+    fn do_something_mut(_: &mlua::Lua, this: &mut Self) {
+        Ok(())
+    }
 }
 
 #[test]
