@@ -1,10 +1,11 @@
 //! A confusing name, but it basically stands for "modules"
 
+use proc_macro2::Ident;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use shared::{
     items::mods::{parse_mod, ModuleItem},
-    utils::{str_to_ident, ItemAttrs},
+    utils::{remove_lua_prefix, str_to_ident, ItemAttrs},
 };
 use syn::ItemMod;
 
@@ -45,27 +46,41 @@ pub fn expand_mod(attrs: ItemAttrs, input: TokenStream2, item: ItemMod) -> Token
         exports.push(match exported {
             ModuleItem::Enum(item) => {
                 let name = item.to_token_stream();
+                
+                // Sometimes making wrappers is annoying because of name collisions.
+                // Unprefixed names exist in this case to separate lua functions/types from original
+                // rust functions/types. 
+                //
+                // This function will remove any "lua" or "lua_" prefixes from the string,
+                // and automatically insert them in the table. THIS, however, doesn't rename the type/function's name
+                // - only their table key.
+                let unprefixed_name = remove_lua_prefix(item.to_string());
+
                 quote! {
                     exports.set(
-                        stringify!(#name),
+                        #unprefixed_name,
                         #mod_name::#name::as_table(lua)?
                     )?;
                 }
             }
             ModuleItem::Fn(item) => {
                 let name = item.to_token_stream();
+                let unprefixed_name = remove_lua_prefix(item.to_string());
+
                 quote! {
                     exports.set(
-                        stringify!(#name),
+                        #unprefixed_name,
                         lua.create_function(#mod_name::#name)?
                     )?;
                 }
             }
             ModuleItem::Impl(item) => {
                 let name = item.to_token_stream();
+                let unprefixed_name = remove_lua_prefix(name.to_string());
+
                 quote! {
                     exports.set(
-                        stringify!(#name),
+                        #unprefixed_name,
                         #mod_name::#name::as_table(lua)?
                     )?;
                 }

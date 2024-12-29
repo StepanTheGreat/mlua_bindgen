@@ -18,12 +18,12 @@ impl ResId {
     }
 
     #[method]
-    fn do_something(_: &mlua::Lua, this: &Self) {
+    fn do_something(_: &mlua::Lua, _this: &Self) {
         Ok(())
     }
 
     #[method_mut]
-    fn do_something_mut(_: &mlua::Lua, this: &mut Self) {
+    fn do_something_mut(_: &mlua::Lua, _this: &mut Self) {
         Ok(())
     }
 }
