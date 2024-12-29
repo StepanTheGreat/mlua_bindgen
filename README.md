@@ -101,11 +101,23 @@ let lua_enum: Table = Colors::as_table(&lua)?;
 ```
 ### Modules
 ```rust
+fn important() {
+
+}
+
 #[mlua_bindgen]
 mod math {
     #[mlua_bindgen]
     pub fn mul(_: &mlua::Lua, val1: f32, val2: f32) -> f32 {
         Ok(val1 * val2)
+    }
+
+    /// Auto prefix removal to avoid name collision. In the lua module, this function instead will be
+    /// exported as "important", while in rust it's name stays the same
+    #[mlua_bindgen]
+    pub fn lua_important(_: &mlua::Lua) {
+        important();
+        Ok(())
     }
 }
 
