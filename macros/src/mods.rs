@@ -4,7 +4,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use shared::{
     items::mods::{parse_mod, ModuleItem},
-    utils::{remove_lua_prefix, str_to_ident, ItemAttrs},
+    utils::{remove_lua_prefix, ToIdent, ItemAttributes},
 };
 use syn::ItemMod;
 
@@ -18,7 +18,7 @@ use shared::mods::MODULE_SUFFIX;
 ///
 /// This is used to import other modules into the module space, and I think that's the best solution overall
 /// (In terms of parsing and convenience)
-pub fn expand_mod(attrs: ItemAttrs, input: TokenStream2, item: ItemMod) -> TokenStream2 {
+pub fn expand_mod(attrs: ItemAttributes, input: TokenStream2, item: ItemMod) -> TokenStream2 {
     let parsed_mod = match parse_mod(attrs, item, false) {
         Ok(parsed_mod) => parsed_mod,
         Err(err) => return err.into_compile_error(),
@@ -87,7 +87,7 @@ pub fn expand_mod(attrs: ItemAttrs, input: TokenStream2, item: ItemMod) -> Token
         });
     }
 
-    let mod_name_module = str_to_ident(&format!("{mod_name}{MODULE_SUFFIX}"));
+    let mod_name_module = format!("{mod_name}{MODULE_SUFFIX}").to_ident();
 
     quote! {
         #input

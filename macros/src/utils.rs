@@ -1,4 +1,3 @@
-use proc_macro::Ident;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::ToTokens;
 use shared::funcs::FuncArg;

@@ -32,23 +32,19 @@ pub fn parse_item(input: TokenStream2) -> ItemKind {
 }
 
 /// A container for [`mlua_bindgen`] macro attributes
-pub struct ItemAttrs {
-    pub attrs: Vec<ItemAttr>
-}
+pub struct ItemAttributes(pub Vec<ItemAttribute>);
 
-impl ItemAttrs {
-    /// Create an empty Item attribute list
-    pub fn new_empty() -> Self {
-        Self {
-            attrs: Vec::new()
-        }
+impl ItemAttributes {
+    /// Create an empty ItemAttribute list
+    pub fn empty() -> Self {
+        Self(Vec::new())
     }
 }
 
 /// Kinds of attributes accepted by the macro
 /// 
 /// Some of the attributes can only be applied to specific items like modules
-pub enum ItemAttr {
+pub enum ItemAttribute {
     /// A vector of module function paths (like `[math_module, some_module, ...]`)
     Includes(Vec<syn::Path>),
     /// An attribute only useful in bindgen, that signifies that this is the main module entrypoint
@@ -57,14 +53,15 @@ pub enum ItemAttr {
     Preserve
 }
 
-impl Parse for ItemAttrs {
+impl Parse for ItemAttributes {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut attrs = Vec::new();
 
         if input.is_empty() {
-            return Ok( ItemAttrs { attrs })
+            return Ok( ItemAttributes(attrs))
         }
         
+        // We're looping here, since multiple attributes can be used at the same time 
         loop {
             // Parse an attribute keyword
             let ident = input.parse::<Ident>()?;
@@ -89,11 +86,11 @@ impl Parse for ItemAttrs {
                     })
                     .collect();
 
-                ItemAttr::Includes(included)
+                ItemAttribute::Includes(included)
             } else if ident == "main" {
-                ItemAttr::IsMain
+                ItemAttribute::IsMain
             } else if ident == "preserve" {
-                ItemAttr::Preserve
+                ItemAttribute::Preserve
             } else {
                 return Err(syn::Error::new_spanned(
                     ident,
@@ -103,21 +100,21 @@ impl Parse for ItemAttrs {
 
             attrs.push(new_attr);
 
-            // If we finished, we can break, but if not - we expect a comma for the next attribute
             if input.is_empty() {
                 break;
             } else {
+                // Since there's still some input present, we expect a comma separator  
                 input.parse::<Comma>()?;
             }
         }
 
-        Ok(Self { attrs })
+        Ok( Self(attrs) )
     }
 }
 
 /// Parse tokens into [`ItemAttrs`]
-pub fn parse_attrs(input: TokenStream2) -> syn::Result<ItemAttrs> {
-    parse2::<ItemAttrs>(input)
+pub fn parse_attributes(input: TokenStream2) -> syn::Result<ItemAttributes> {
+    parse2::<ItemAttributes>(input)
 }
 
 /// Constructs a quick error;
@@ -142,12 +139,27 @@ pub fn contains_attr(attrs: &[syn::Attribute], needed: &str) -> bool {
     false
 }
 
-/// Convert a string into an ident token.
-///
-/// The reason it can't already be done via str.to_token_stream() is that
-/// it will include the quote characters as well. This is workaround.
-pub fn str_to_ident(input: &str) -> syn::Ident {
-    syn::Ident::new(input, proc_macro2::Span::call_site())
+/// A trait for converting types into the Ident token
+/// 
+/// Currently only strings are supported
+pub trait ToIdent {
+    /// Convert a string into an ident token.
+    ///
+    /// The reason it can't already be done via str.to_token_stream() is that
+    /// it will include the quote characters as well. This is workaround.
+    fn to_ident(&self) -> syn::Ident;
+}
+
+impl ToIdent for &str {
+    fn to_ident(&self) -> syn::Ident {
+        syn::Ident::new(self, proc_macro2::Span::call_site())
+    }
+}
+
+impl ToIdent for String {
+    fn to_ident(&self) -> syn::Ident {
+        syn::Ident::new(self, proc_macro2::Span::call_site())
+    }
 }
 
 pub trait LastPathIdent {

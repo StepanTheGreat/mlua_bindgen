@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use syn::{Ident, Item, ItemMod, Path, Visibility};
 
 use crate::utils::{
-    contains_attr, str_to_ident, syn_error, ItemAttr, ItemAttrs, LastPathIdent, MLUA_BINDGEN_ATTR
+    contains_attr, ToIdent, syn_error, ItemAttribute, ItemAttributes, LastPathIdent, MLUA_BINDGEN_ATTR
 };
 
 use super::{enums::{parse_enum, ParsedEnum}, funcs::{parse_func, FuncKind, ParsedFunc}, impls::{parse_impl, ParsedImpl}};
@@ -50,7 +50,7 @@ impl ModulePath {
 
     /// This will get the identity of the real name
     pub fn get_ident(&self) -> Ident {
-        str_to_ident(&self.name)
+        self.name.as_str().to_ident()
     }
 
     /// Returns module's name without the prefix
@@ -80,7 +80,7 @@ pub struct ParsedModule {
 /// 
 /// `parse_items` tells whether to parse module items entirely, or just create dummy
 /// items from their ident/types. This is just to avoid useless parsing when macro expands
-pub fn parse_mod(attrs: ItemAttrs, item: ItemMod, parse_items: bool) -> syn::Result<ParsedModule> {
+pub fn parse_mod(attrs: ItemAttributes, item: ItemMod, parse_items: bool) -> syn::Result<ParsedModule> {
     let ident = item.ident;
     let mut ismain = false;
     let visibility = item.vis;
@@ -90,15 +90,15 @@ pub fn parse_mod(attrs: ItemAttrs, item: ItemMod, parse_items: bool) -> syn::Res
     let mut included = Vec::new();
     // Iterate over all attributes in the list.
     // Here we care only about 2 attributes: Includes and IsMain
-    for attr in attrs.attrs {
+    for attr in attrs.0 {
         match attr {
-            ItemAttr::Includes(paths) => {
+            ItemAttribute::Includes(paths) => {
                 included = paths
             },
-            ItemAttr::IsMain => {
+            ItemAttribute::IsMain => {
                 ismain = true
             },
-            ItemAttr::Preserve => {}
+            ItemAttribute::Preserve => {}
         }
     }
 
