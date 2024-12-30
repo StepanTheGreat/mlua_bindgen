@@ -150,12 +150,11 @@ of time on documenting everything even better.
 - Add support for different lua flavors provided by mlua (ie `luau`, `lua-jit` and so on). Currently this crate
 uses `luau` internally. (It may not influence anything, but adding these flavors as conditional choice could be
 better)
-- Add a `main` marker for the `mlua_bindgen` macro ( it will look something like `#[mlua_bindgen(main)]`), that will
-specify that the module is main (or that it's an entry-point module)
-- Bindings generation. This is supposed to analyze specified rust files for marked `mlua_bindgen` attributes,
-collect neccessary information (type names, documentation, variable names, variable types, ...) and transform
-into a bindings file that luau-lsp can understand.
-- Add a way to rename `mlua_bindgen` items; could be useful when dealing with API that has name collisions. For example: `#[mlua_bindgen(as = new_name)]`
+- Bindings generation somewhat works, but needs a huge overwrite (extremely bad written). Another problem is that
+it currently relies on unique module names and can resolve ones that are repeating, which in itself can result
+in bugs. (If you use this crate - don't use repetitive names in modules!)
+- No mechanisms against type dublication in bindgen (types in Luau are global scope, meaning that using the same 
+type name in different modules will result in 2 different type declarations) 
 
 ## Some issues
 1. You can't declare modules inside modules (You can connect them though)
