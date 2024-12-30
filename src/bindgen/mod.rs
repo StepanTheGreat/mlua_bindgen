@@ -4,12 +4,11 @@
 //! ## Generate Lua bindings for your Rust types!
 
 use shared::mods::{parse_mod, ParsedModule};
-use shared::utils::{parse_attributes, ItemAttributes, LastPathIdent, MLUA_BINDGEN_ATTR};
-use std::fs;
-use std::path::Path;
+use shared::utils::{parse_attributes, ItemAttributes, MLUA_BINDGEN_ATTR};
+use std::fs::{self, FileType};
 use std::{collections::HashMap, path::PathBuf};
 use syn::Item;
-use syn::{Attribute, Type};
+use syn::Attribute;
 use types::{LuaFile, LuaModule};
 use utils::{find_attr, get_attribute_args};
 
@@ -23,7 +22,7 @@ pub struct ParsedFile {
 }
 
 impl ParsedFile {
-    /// Transform all parsed structure into Lua compatible structures
+    /// Transform all parsed structure into Lua structures
     pub fn transform_to_lua<'a>(self) -> anyhow::Result<LuaFile<'a>> {
         let mut lua_file = LuaFile::new();
 
@@ -157,5 +156,45 @@ impl BindgenTransformer {
             in_paths: Vec::new(),
             out_path: None
         }
+    }
+
+    /// Add a rust source file path to process
+    pub fn add_input_file(mut self, file: impl Into<PathBuf>) -> Self {
+        self.in_paths.push(file.into());
+        self
+    }
+
+    /// Add an entire directory 
+    pub fn add_input_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+        if let Ok(files) = std::fs::read_dir(dir.into()) {
+            for file in files {
+                let file = match file {
+                    Ok(file) => file,
+                    Err(_) => continue
+                };
+
+                // TODO: Add a check here for directory types
+
+                let file_name = file.file_name();
+                let file_name = match file_name.to_str() {
+                    Some(file_name) => file_name,
+                    None => continue
+                };
+
+                if file_name.ends_with(".rs") {
+                    self.in_paths.push(file.path());
+                }
+            }
+        }
+
+        self
+    }
+
+    /// Set the output declaration file. 
+    /// 
+    /// A luau declaration file should end with `.d.lua`
+    pub fn set_output_path(mut self, path: impl Into<PathBuf>) -> Self {
+        self.out_path = Some(path.into());
+        self
     }
 }
