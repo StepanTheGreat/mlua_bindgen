@@ -2,8 +2,7 @@ use std::fmt::Display;
 
 use proc_macro2::TokenStream as TokenStream2;
 use syn::{
-    parse::Parse, parse2, spanned::Spanned, Expr, ExprArray, Ident, Item, ItemEnum, ItemFn,
-    ItemImpl, ItemMod, Token,
+    parse::Parse, parse2, spanned::Spanned, token::Comma, Expr, ExprArray, Ident, Item, ItemEnum, ItemFn, ItemImpl, ItemMod, Token
 };
 
 pub const MLUA_BINDGEN_ATTR: &str = "mlua_bindgen";
@@ -32,46 +31,87 @@ pub fn parse_item(input: TokenStream2) -> ItemKind {
     }
 }
 
-/// The attributes that are only used by the [`mlua_bindgen`] macro. For now I'm leaving it an enum, since
-/// I only have a single attribute, but in the future I'm thinking of changing it to a struct with a vector
-/// of enums instead.
-pub enum ItemAttrs {
-    Empty,
+/// A container for [`mlua_bindgen`] macro attributes
+pub struct ItemAttrs {
+    pub attrs: Vec<ItemAttr>
+}
+
+impl ItemAttrs {
+    /// Create an empty Item attribute list
+    pub fn new_empty() -> Self {
+        Self {
+            attrs: Vec::new()
+        }
+    }
+}
+
+/// Kinds of attributes accepted by the macro
+/// 
+/// Some of the attributes can only be applied to specific items like modules
+pub enum ItemAttr {
     /// A vector of module function paths (like `[math_module, some_module, ...]`)
     Includes(Vec<syn::Path>),
+    /// An attribute only useful in bindgen, that signifies that this is the main module entrypoint
+    IsMain,
+    /// An attribute that tells to keep the original name, without removing its Lua prefix.
+    Preserve
 }
 
 impl Parse for ItemAttrs {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut attrs = Vec::new();
+
         if input.is_empty() {
-            return Ok(Self::Empty);
+            return Ok( ItemAttrs { attrs })
         }
+        
+        loop {
+            // Parse an attribute keyword
+            let ident = input.parse::<Ident>()?;
 
-        // Parse the `include` keyword
-        let ident = input.parse::<Ident>()?;
-        if ident != "include" {
-            return Err(syn::Error::new_spanned(
-                ident,
-                "Only \"include\" keyword is accepted",
-            ));
-        }
+            let new_attr = if ident == "include" {
+                // Parse the `=` sign
+                input.parse::<Token![=]>()?;
+        
+                // Then we expect a list of expressions: `[expr1, expr2]`
+                let items = input.parse::<ExprArray>()?;
+        
+                // Finally, we collect these expressions into the included vector.
+                // (Or to be precise, only the ones that are Path)
+                let included: Vec<syn::Path> = items.elems
+                    .into_iter()
+                    .filter_map(|item| {
+                        if let Expr::Path(path) = item {
+                            Some(path.path)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
 
-        // Parse the `=` sign
-        input.parse::<Token![=]>()?;
+                ItemAttr::Includes(included)
+            } else if ident == "main" {
+                ItemAttr::IsMain
+            } else if ident == "preserve" {
+                ItemAttr::Preserve
+            } else {
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    "Unknown keyword. Only `main`, `preserve` and `include` can be used",
+                ));
+            };
 
-        // Then we expect a list of expressions: `[expr1, expr2]`
-        let items = input.parse::<ExprArray>()?;
+            attrs.push(new_attr);
 
-        // Finally, we collect these expressions into the included vector.
-        // (Or to be precise, only the ones that are Path)
-        let mut included: Vec<syn::Path> = Vec::new();
-        for item in items.elems {
-            if let Expr::Path(path) = item {
-                included.push(path.path);
+            // If we finished, we can break, but if not - we expect a comma for the next attribute
+            if input.is_empty() {
+                break;
+            } else {
+                input.parse::<Comma>()?;
             }
         }
 
-        Ok(Self::Includes(included))
+        Ok(Self { attrs })
     }
 }
 

@@ -1,13 +1,10 @@
 use shared::{
-    enums::ParsedEnum,
-    funcs::ParsedFunc,
-    impls::{FieldKind, ParsedImpl},
-    ToTokens,
+    enums::ParsedEnum, funcs::ParsedFunc, impls::{FieldKind, ParsedImpl}, mods::{ModuleItem, ModulePath, ParsedModule}, ToTokens
 };
 use std::fmt::Write;
-use syn::Pat;
+use syn::{token::Mod, Pat};
 
-use super::LuaType;
+use super::{utils::add_tabs, LuaType};
 
 /// Describes an item's parent. [`None`] means it's a global
 pub type ItemParent = Option<String>;
@@ -35,7 +32,6 @@ pub struct LuaVariant {
 
 /// A luau function that contains its name, doc, return type, named [`LuaArg`] and its parent module name
 pub struct LuaFunc {
-    parent: ItemParent,
     name: String,
     doc: ItemDoc,
     return_ty: LuaType,
@@ -69,7 +65,6 @@ impl LuaFunc {
         }
 
         Some(Self {
-            parent: None,
             name,
             doc: None,
             return_ty,
@@ -135,7 +130,6 @@ impl LuaFunc {
 
 /// In luau described as both type and table
 pub struct LuaStruct {
-    parent: ItemParent,
     name: String,
     doc: ItemDoc,
     fields: Vec<LuaField>,
@@ -173,7 +167,6 @@ impl LuaStruct {
         }
 
         Some(Self {
-            parent: None,
             name,
             doc: None,
             funcs,
@@ -184,7 +177,7 @@ impl LuaStruct {
 }
 
 impl LuaExpand for LuaStruct {
-    fn lua_expand(&self) -> (String, String) {
+    fn lua_expand(&self, inside_parent: bool) -> (String, String) {
         let mut expanded = String::new();
         let mut global_ty = String::new();
 
@@ -218,7 +211,7 @@ impl LuaExpand for LuaStruct {
             writeln!(&mut expanded, "--[[{doc}]]").unwrap();
         }
 
-        if self.parent.is_some() {
+        if inside_parent {
             writeln!(&mut expanded, "{name}: {{").unwrap();
         } else {
             writeln!(&mut expanded, "declare {name}: {{").unwrap();
@@ -230,7 +223,9 @@ impl LuaExpand for LuaStruct {
             writeln!(&mut expanded, "    {fname}: {fty},").unwrap();
         }
 
-        writeln!(&mut expanded, "}}").unwrap();
+        let comma = if inside_parent { "," } else { "" };
+
+        writeln!(&mut expanded, "}}{comma}").unwrap();
 
         // Now finally return
 
@@ -239,7 +234,6 @@ impl LuaExpand for LuaStruct {
 }
 
 pub struct LuaEnum {
-    parent: ItemParent,
     name: String,
     doc: ItemDoc,
     variants: Vec<LuaVariant>,
@@ -258,7 +252,6 @@ impl LuaEnum {
             .collect();
 
         Some(Self {
-            parent: None,
             name,
             doc: None,
             variants,
@@ -267,7 +260,7 @@ impl LuaEnum {
 }
 
 impl LuaExpand for LuaEnum {
-    fn lua_expand(&self) -> (String, String) {
+    fn lua_expand(&self, inside_parent: bool) -> (String, String) {
         let mut expanded = String::new();
 
         let name = &self.name;
@@ -280,7 +273,7 @@ impl LuaExpand for LuaEnum {
         // Depending on the nesting, luau function declarations aren't the same.
         // Global functions are declared directly as function {name}({named args}): {ret type},
         // but nested functions (included in types or )
-        if self.parent.is_some() {
+        if inside_parent {
             writeln!(&mut expanded, "{name}: {{").unwrap();
         } else {
             writeln!(&mut expanded, "declare {name}: {{").unwrap();
@@ -289,7 +282,10 @@ impl LuaExpand for LuaEnum {
         for var in self.variants.iter() {
             writeln!(&mut expanded, "    {}: number,", var.name).unwrap();
         }
-        writeln!(&mut expanded, "}}").unwrap();
+
+        let comma = if inside_parent { "," } else { "" };
+
+        writeln!(&mut expanded, "}}{comma}").unwrap();
 
         (String::new(), expanded)
     }
@@ -298,9 +294,134 @@ impl LuaExpand for LuaEnum {
 /// Just an item that contains module name. It doesn't own anything, lua items describe its relationship
 /// with it using the [`ItemParent`] attribute.
 pub struct LuaModule {
-    parent: ItemParent,
+    /// If this module is the main (entrypoint) module
+    ismain: bool,
     doc: ItemDoc,
     name: String,
+    includes: Vec<ModulePath>,
+    mods: Vec<LuaModule>,
+    pub funcs: Vec<LuaFunc>,
+    pub impls: Vec<LuaStruct>,
+    pub enums: Vec<LuaEnum>
+}
+
+impl LuaModule {
+    pub fn from_parsed(parsed: ParsedModule) -> Option<Self> {
+        let name = parsed.ident.to_string();
+        let ismain = parsed.ismain;
+        let mut funcs = Vec::new();
+        let mut impls = Vec::new();
+        let mut enums = Vec::new();
+
+        for item in parsed.items {
+            match item {
+                ModuleItem::Fn(func) => {
+                    funcs.push(LuaFunc::from_parsed(func)?);
+                },
+                ModuleItem::Enum(enm) => {
+                    enums.push(LuaEnum::from_parsed(enm)?);
+                },
+                ModuleItem::Impl(imp) => {
+                    impls.push(LuaStruct::from_parsed(imp)?);
+                }
+            }
+        }        
+
+        Some(Self {
+            ismain,
+            name,
+            includes: parsed.includes,
+            doc: None,
+            mods: Vec::new(),
+            funcs,
+            impls,
+            enums
+        })
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn is_main(&self) -> bool {
+        self.ismain
+    }
+
+    /// Get the module names that this module needs
+    pub fn get_included(&self) -> &Vec<ModulePath> {
+        &self.includes
+    }
+
+    /// Check whether this module is of provided path.
+    pub fn is(&self, path: &ModulePath) -> bool {
+        self.name == path.name()
+    }
+
+    /// Insert the module, and remove its name 
+    pub fn insert_module(&mut self, module: LuaModule) {
+        let mod_name = &module.name;
+        // Remove the name of this module from required modules
+        self.includes.retain(|mod_path| {
+            &mod_path.name() != mod_name
+        });
+        self.mods.push(module);
+    }
+}
+
+impl LuaExpand for LuaModule {
+    fn lua_expand(&self, inside_parent: bool) -> (String, String) {
+        let mut global = String::new();
+        let mut expanded = String::new();
+
+        let name = &self.name;
+
+        // First we write the doc string to our function, if it is present
+        if let Some(ref doc) = self.doc {
+            writeln!(&mut expanded, "--[[{doc}]]").unwrap();
+        }
+
+        // Depending on the nesting, luau function declarations aren't the same.
+        // Global functions are declared directly as function {name}({named args}): {ret type},
+        // but nested functions (included in types or )
+        if inside_parent {
+            writeln!(&mut expanded, "{name}: {{").unwrap();
+        } else {
+            writeln!(&mut expanded, "declare {name}: {{").unwrap();
+        }
+
+        for lua_impl in self.impls.iter() {
+            let (child_global, child_expand) = lua_impl.lua_expand(true);
+            let child_expand = add_tabs(child_expand, 1);
+            write!(&mut global, "{child_global}").unwrap();
+            write!(&mut expanded, "{child_expand}").unwrap();
+        }
+
+        for lua_enum in self.enums.iter() {
+            let (_, child_expand) = lua_enum.lua_expand(true);
+            let child_expand = add_tabs(child_expand, 1);
+            write!(&mut expanded, "{child_expand}").unwrap();
+        }
+
+        for lua_func in self.funcs.iter() {
+            let (_, child_expand) = lua_func.lua_expand(true);
+            let child_expand = add_tabs(child_expand, 1);
+            write!(&mut expanded, "{child_expand}").unwrap();
+        }
+
+        for lua_mod in self.mods.iter() {
+            let (child_global, child_expand) = lua_mod.lua_expand(true);
+            let child_expand = add_tabs(child_expand, 1);
+            if !child_global.is_empty() {
+                write!(&mut global, "{child_global}").unwrap();
+            }
+            write!(&mut expanded, "{child_expand}").unwrap();
+        }
+
+        let comma = if inside_parent { "," } else { "" };
+        writeln!(&mut expanded, "}}{comma}").unwrap();
+
+        (global, expanded)
+    }
 }
 
 /// I'm not sure thy it's a trait, but okay - maybe for consistency.
@@ -308,7 +429,7 @@ pub trait LuaExpand {
     /// Lua expand will take a reference to self, and expand to 2 strings:
     /// 1. A global declaration (for example `export type`)
     /// 2. A nested declaration (for modules)
-    fn lua_expand(&self) -> (String, String);
+    fn lua_expand(&self, inside_parent: bool) -> (String, String);
 }
 
 /// Describes a lua file, which basically is similar to [`ParsedFile`], but contains
@@ -321,7 +442,7 @@ pub struct LuaFile {
 }
 
 impl LuaExpand for LuaFunc {
-    fn lua_expand(&self) -> (String, String) {
+    fn lua_expand(&self, inside_parent: bool) -> (String, String) {
         let mut expanded = String::new();
 
         let name = &self.name;
@@ -336,8 +457,8 @@ impl LuaExpand for LuaFunc {
         // Depending on the nesting, luau function declarations aren't the same.
         // Global functions are declared directly as function {name}({named args}): {ret type},
         // but nested functions (included in types or )
-        if self.parent.is_some() {
-            writeln!(&mut expanded, "{name}: ({args}) -> {ret_ty}").unwrap();
+        if inside_parent {
+            writeln!(&mut expanded, "{name}: ({args}) -> {ret_ty},").unwrap();
         } else {
             writeln!(&mut expanded, "declare function {name}({args}): {ret_ty}").unwrap();
         }
@@ -352,19 +473,27 @@ impl LuaFile {
         let mut src = String::new();
 
         for strct in self.impls {
-            let (global_expanded, expanded) = strct.lua_expand();
-            writeln!(&mut src, "{}", global_expanded).unwrap();
-            writeln!(&mut src, "{}", expanded).unwrap();
+            let (global_expanded, expanded) = strct.lua_expand(false);
+            writeln!(&mut src, "{global_expanded}").unwrap();
+            writeln!(&mut src, "{expanded}").unwrap();
         }
 
         for enm in self.enums {
-            let (_, expanded) = enm.lua_expand();
-            writeln!(&mut src, "{}", expanded).unwrap();
+            let (_, expanded) = enm.lua_expand(false);
+            writeln!(&mut src, "{expanded}").unwrap();
         }
 
         for func in self.funcs {
-            let (_, expanded) = func.lua_expand();
-            writeln!(&mut src, "{}", expanded).unwrap();
+            let (_, expanded) = func.lua_expand(false);
+            writeln!(&mut src, "{expanded}").unwrap();
+        }
+
+        for module in self.mods {
+            let (global_expanded, expanded) = module.lua_expand(false);
+            if !global_expanded.is_empty() {
+                writeln!(&mut src, "{global_expanded}").unwrap();
+            }
+            writeln!(&mut src, "{expanded}").unwrap();
         }
 
         std::fs::write(path, src).unwrap();

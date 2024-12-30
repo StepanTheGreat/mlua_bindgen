@@ -1,6 +1,5 @@
 //! A confusing name, but it basically stands for "modules"
 
-use proc_macro2::Ident;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use shared::{
@@ -20,7 +19,7 @@ use shared::mods::MODULE_SUFFIX;
 /// This is used to import other modules into the module space, and I think that's the best solution overall
 /// (In terms of parsing and convenience)
 pub fn expand_mod(attrs: ItemAttrs, input: TokenStream2, item: ItemMod) -> TokenStream2 {
-    let parsed_mod = match parse_mod(attrs, item) {
+    let parsed_mod = match parse_mod(attrs, item, false) {
         Ok(parsed_mod) => parsed_mod,
         Err(err) => return err.into_compile_error(),
     };
@@ -45,7 +44,7 @@ pub fn expand_mod(attrs: ItemAttrs, input: TokenStream2, item: ItemMod) -> Token
     for exported in parsed_mod.items {
         exports.push(match exported {
             ModuleItem::Enum(item) => {
-                let name = item.to_token_stream();
+                let name = item.ident.to_token_stream();
                 
                 // Sometimes making wrappers is annoying because of name collisions.
                 // Unprefixed names exist in this case to separate lua functions/types from original
@@ -54,7 +53,7 @@ pub fn expand_mod(attrs: ItemAttrs, input: TokenStream2, item: ItemMod) -> Token
                 // This function will remove any "lua" or "lua_" prefixes from the string,
                 // and automatically insert them in the table. THIS, however, doesn't rename the type/function's name
                 // - only their table key.
-                let unprefixed_name = remove_lua_prefix(item.to_string());
+                let unprefixed_name = remove_lua_prefix(name.to_string());
 
                 quote! {
                     exports.set(
@@ -64,8 +63,8 @@ pub fn expand_mod(attrs: ItemAttrs, input: TokenStream2, item: ItemMod) -> Token
                 }
             }
             ModuleItem::Fn(item) => {
-                let name = item.to_token_stream();
-                let unprefixed_name = remove_lua_prefix(item.to_string());
+                let name = item.name.to_token_stream();
+                let unprefixed_name = remove_lua_prefix(name.to_string());
 
                 quote! {
                     exports.set(
@@ -75,7 +74,7 @@ pub fn expand_mod(attrs: ItemAttrs, input: TokenStream2, item: ItemMod) -> Token
                 }
             }
             ModuleItem::Impl(item) => {
-                let name = item.to_token_stream();
+                let name = item.name.to_token_stream();
                 let unprefixed_name = remove_lua_prefix(name.to_string());
 
                 quote! {

@@ -1,6 +1,45 @@
 static COUNTER: AtomicU32 = AtomicU32::new(5);
 
 #[mlua_bindgen]
+mod super_inner {
+    use macros::mlua_bindgen;
+
+    #[mlua_bindgen]
+    pub fn add(_: &mlua::Lua, val1: f32, val2: f32) -> f32 {
+        Ok(val1 + val2)
+    }
+
+    #[mlua_bindgen]
+    pub fn subtract(_: &mlua::Lua, val1: f32, val2: f32) -> f32 {
+        Ok(val1 - val2)
+    }
+
+    #[derive(Clone, Debug, FromLua, PartialEq)]
+    pub struct CoolNumber {
+        val: f64
+    }
+
+    impl CoolNumber {
+        pub fn new(val: f64) -> Self {
+            Self { val }
+        }
+    }
+
+    #[mlua_bindgen]
+    impl CoolNumber {
+        #[func]
+        fn new(_: _, val: f64) -> Self {
+            Ok(Self::new(val))
+        }
+
+        #[get]
+        fn value(_: _, this: &Self) -> f32 {
+            Ok(this.val as f32)
+        }
+    }
+}
+
+#[mlua_bindgen(include = [super_inner_module])]
 mod inner {
     use macros::mlua_bindgen;
 
@@ -10,8 +49,8 @@ mod inner {
     }
 }
 
-#[mlua_bindgen(include = [inner_module])]
-mod math {
+#[mlua_bindgen(main, include = [inner_module])]
+mod main {
     use std::sync::atomic::Ordering;
 
     use mlua::FromLua;

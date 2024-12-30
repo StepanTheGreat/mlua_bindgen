@@ -14,7 +14,7 @@ use std::sync::LazyLock;
 use std::{collections::HashMap, path::PathBuf};
 use syn::Item;
 use syn::{Attribute, Type};
-use types::{LuaEnum, LuaFile, LuaFunc, LuaStruct};
+use types::{LuaEnum, LuaFile, LuaFunc, LuaModule, LuaStruct};
 use utils::{find_attr, get_attribute_args};
 
 mod types;
@@ -137,29 +137,104 @@ impl LuaType {
 /// A collection of all mlua_bindgen items in a single structure
 pub struct ParsedFile {
     pub mods: Vec<ParsedModule>,
-    pub funcs: Vec<ParsedFunc>,
-    pub impls: Vec<ParsedImpl>,
-    pub enums: Vec<ParsedEnum>,
 }
 
 impl ParsedFile {
     pub fn transform_to_lua(self) -> Option<LuaFile> {
-        let mods = Vec::new();
+        let mut mods = Vec::new();
         let mut impls = Vec::new();
         let mut enums = Vec::new();
         let mut funcs = Vec::new();
+    
+        // Here we parse and collect all lua modules. 
+        // We also check if any of them is main, and if so - we add it to a separate main_mod variable,
+        // which will be important for us later
+        let mut main_mod: Option<LuaModule> = None;
+        let mut mod_map = HashMap::new();
+        for parsed_mod in self.mods {
+            let lua_mod = LuaModule::from_parsed(parsed_mod)?;
+            if lua_mod.is_main() {
+                if main_mod.is_some() {
+                    // There are 2 main modules? This is a guaranteed panic!
+                    panic!("Found more than 2 main modules. Only 1 can be present at the same time");
+                } else {
+                    main_mod = Some(lua_mod);
+                }
+            } else {
+                mod_map.insert(lua_mod.name(), lua_mod);
+            }
+        }
+        println!("Got modules: {:}", mod_map.len());
 
-        for parsed_enum in self.enums {
-            enums.push(LuaEnum::from_parsed(parsed_enum)?);
+        let mut main_mod = main_mod.expect("Bindgen requires a main module to be present");
+
+        // Now we need to insert modules appropriately, starting from the main module
+        loop {
+            // A tuple of parent module, and a list of modules to be inserted into them
+            let mut insertions: HashMap<String, Vec<String>> = HashMap::new();
+            for (mod_name, module) in mod_map.iter() {
+                let needs = module.get_included();
+                if needs.is_empty() { continue };
+
+                // Iterate over all module paths this module requires
+                for needed_path in needs {
+                    // Check whether it exists in the map
+                    if let Some(needed_mod) = mod_map.get(&needed_path.name()) {
+                        // Also make sure that the found module doesn't include anything. If it does - 
+                        // we need to resolve that module first.
+                        if needed_mod.get_included().is_empty() {
+                            if insertions.contains_key(mod_name) {
+                                insertions.get_mut(mod_name).unwrap().push(needed_mod.name());
+                            } else {
+                                insertions.insert(mod_name.clone(),  vec![needed_mod.name()]);
+                            }
+                        }
+                    }
+                }
+            } 
+
+            if insertions.is_empty() {
+                // No more insertions to make, the modules are prepared
+                break
+            } else {
+                // Iterate over all insertions, and insert them into their appropriate modules
+                for (mod_name, to_insert) in insertions.into_iter() {
+                    for item in to_insert {
+                        let removed = mod_map.remove(&item).unwrap();
+                        mod_map.get_mut(&mod_name).unwrap().insert_module(removed);
+                    }
+                }
+            }
+        }
+        // Now we just need to insert all collected modules into the main module
+        let main_mod_included = main_mod.get_included();
+        for module in mod_map.into_values() {
+            let contains = main_mod_included.iter()
+                .find(|path| module.is(path))
+                .is_some();
+
+            if contains {
+                mods.push(module)    
+            }
         }
 
-        for parsed_impl in self.impls {
-            impls.push(LuaStruct::from_parsed(parsed_impl)?);
+        // Now we remove all the main module items into the main file instead
+        for lua_enum in main_mod.enums.drain(..) {
+            enums.push(lua_enum);
         }
 
-        for parsed_func in self.funcs {
-            funcs.push(LuaFunc::from_parsed(parsed_func)?);
+        for lua_impl in main_mod.impls.drain(..) {
+            impls.push(lua_impl);
         }
+
+        for lua_func in main_mod.funcs.drain(..) {
+            funcs.push(lua_func);
+        }
+
+        println!("Mods: {}", mods.len());
+        println!("Funcs: {}", funcs.len());
+        println!("Impls: {}", impls.len());
+        println!("Enums: {}", enums.len());
 
         Some(LuaFile {
             mods,
@@ -175,59 +250,34 @@ impl ParsedFile {
 fn get_bindgen_attrs(item_attrs: &[Attribute]) -> Option<ItemAttrs> {
     let attr = find_attr(item_attrs, MLUA_BINDGEN_ATTR)?;
 
-    let attr_tokens = get_attribute_args(attr)?;
-
-    match parse_attrs(attr_tokens) {
-        Ok(attrs) => Some(attrs),
-        Err(_err) => None,
+    match get_attribute_args(attr) {
+        Some(attr_tokens) => {
+            match parse_attrs(attr_tokens) {
+                Ok(attrs) => Some(attrs),
+                Err(_err) => None
+            }
+        },
+        None => Some(ItemAttrs::new_empty())
     }
 }
 
 /// Parsed a file.
 fn parse_file(file: syn::File) -> syn::Result<ParsedFile> {
     let mut mods: Vec<ParsedModule> = Vec::new();
-    let mut funcs: Vec<ParsedFunc> = Vec::new();
-    let mut impls: Vec<ParsedImpl> = Vec::new();
-    let mut enums: Vec<ParsedEnum> = Vec::new();
 
     for item in file.items {
-        match item {
-            Item::Mod(mod_item) => {
-                if let Some(attrs) = get_bindgen_attrs(&mod_item.attrs) {
-                    mods.push(parse_mod(attrs, mod_item)?);
-                }
+        if let Item::Mod(mod_item) = item {
+            if let Some(attrs) = get_bindgen_attrs(&mod_item.attrs) {
+                mods.push(parse_mod(attrs, mod_item, true)?);
             }
-            Item::Fn(fn_item) => {
-                if contains_attr(&fn_item.attrs, MLUA_BINDGEN_ATTR) {
-                    funcs.push(parse_func(fn_item, &FuncKind::Func)?);
-                }
-            }
-            Item::Impl(impl_item) => {
-                if contains_attr(&impl_item.attrs, MLUA_BINDGEN_ATTR) {
-                    impls.push(parse_impl(impl_item)?);
-                }
-            }
-            Item::Enum(enum_item) => {
-                if contains_attr(&enum_item.attrs, MLUA_BINDGEN_ATTR) {
-                    enums.push(parse_enum(enum_item)?);
-                }
-            }
-            _ => continue,
-        };
+        }
     }
 
-    Ok(ParsedFile {
-        mods,
-        impls,
-        funcs,
-        enums,
-    })
+    Ok(ParsedFile { mods })
 }
 
 pub fn load_file(path: impl Into<PathBuf>) -> syn::Result<ParsedFile> {
     let src = fs::read_to_string(path.into()).unwrap();
     let file = syn::parse_file(&src)?;
-
-    // let (funcs, structs) = extract_items(file);
     parse_file(file)
 }

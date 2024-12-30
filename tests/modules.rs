@@ -58,7 +58,10 @@ mod inner {
     }
 }
 
-#[mlua_bindgen(include = [inner_module])]
+#[mlua_bindgen(
+    include = [inner_module], 
+    main
+)]
 mod math {
     use std::sync::atomic::Ordering;
 

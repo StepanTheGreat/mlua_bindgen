@@ -1,6 +1,6 @@
 pub use macros::mlua_bindgen;
 
-#[cfg(feature = "bindgen")]
+// #[cfg(feature = "bindgen")]
 pub mod bindgen;
 
 /// A trait that allows converting a type to a table. For example in Roblox, custom "types" (userdata) can be

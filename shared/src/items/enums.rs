@@ -10,6 +10,16 @@ pub struct ParsedEnum {
     pub variants: Vec<(Ident, LuaVariantType)>,
 }
 
+impl ParsedEnum {
+    /// An empty constructor exclusively to avoid enum parsing on macro expansion
+    pub fn from_ident(ident: Ident) -> Self {
+        Self {
+            ident,
+            variants: Vec::new()
+        }
+    }
+}
+
 /// Parse an [`ItemEnum`] into [`ParsedEnum`].
 pub fn parse_enum(item: ItemEnum) -> syn::Result<ParsedEnum> {
     let ident = item.ident;

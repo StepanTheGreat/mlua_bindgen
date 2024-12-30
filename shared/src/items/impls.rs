@@ -43,6 +43,18 @@ pub struct ParsedImpl {
     pub methods: Vec<ParsedImplFunc>,
 }
 
+impl ParsedImpl {
+    /// Construct an absolutely empty impl, with just name information
+    pub fn from_ty(name: Type) -> Self {
+        Self {
+            name,
+            fields: Vec::new(),
+            funcs: Vec::new(),
+            methods: Vec::new()
+        }
+    }
+}
+
 /// Parse an impl block and its inner functions into a [`ParsedImpl`]
 pub fn parse_impl(input: ItemImpl) -> syn::Result<ParsedImpl> {
     let name = input.self_ty;
