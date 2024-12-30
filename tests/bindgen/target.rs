@@ -47,6 +47,21 @@ mod inner {
     pub fn mul(_: &mlua::Lua, val1: f32, val2: f32) -> f32 {
         Ok(val1 * val2)
     }
+
+    #[mlua_bindgen]
+    pub enum Numbers {
+        Num1,
+        Num2,
+        Num3,
+        // Forgot 4?
+        Num5 = 5
+    }
+
+    /// Adds something to a global counter
+    #[mlua_bindgen]
+    pub fn do_something(_: &mlua::Lua, what: u32) -> f32 {
+        Ok(0.75)
+    }
 }
 
 #[mlua_bindgen(main, include = [inner_module])]
@@ -79,7 +94,6 @@ mod main {
             Ok(Self::new(x, y))
         }
 
-        //
         #[method]
         fn add(_: _, this: &Self, with: Self) -> Self {
             let res = Self {
@@ -88,6 +102,12 @@ mod main {
             };
 
             Ok(res)
+        }
+
+        #[method]
+        fn hello(_: _, this: &Self) {
+            // Do something
+            Ok(())
         }
 
         #[get]
@@ -112,73 +132,21 @@ mod main {
             Ok(())
         }
     }
-}
 
-#[mlua_bindgen]
-impl Vector {
-    #[func]
-    fn new(_: _, x: f32, y: f32) -> Self {
-        Ok(Self::new(x, y))
+    #[mlua_bindgen]
+    enum GreatEnum {
+        Var1,
+        Var2,
+        Var4 = 3,
+        Var100 = 100,
+        Var101,
     }
 
-    #[method]
-    fn add(_: _, this: &Self, with: Self) -> Self {
-        let res = Self {
-            x: this.x + with.x,
-            y: this.y + with.y,
-        };
-
-        Ok(res)
+    /// Adds something to a global counter
+    #[mlua_bindgen]
+    pub fn do_something_better(_: &mlua::Lua, what: u32, other: String) -> [String; 3] {
+        Ok(["".to_owned(), "".to_owned(), "".to_owned()])
     }
-
-    #[method]
-    fn hello(_: _, this: &Self) {
-        // Do something
-        Ok(())
-    }
-
-    #[get]
-    fn x(_: _, this: &Self) -> f32 {
-        Ok(this.x)
-    }
-
-    #[get]
-    fn y(_: _, this: &Self) -> f32 {
-        Ok(this.y)
-    }
-
-    #[set]
-    fn x(_: _, this: &mut Self, to: f32) {
-        this.x = to;
-        Ok(())
-    }
-
-    #[set]
-    fn y(_: _, this: &mut Self, to: f32) {
-        this.y = to;
-        Ok(())
-    }
-}
-
-#[mlua_bindgen]
-enum GreatEnum {
-    Var1,
-    Var2,
-    Var4 = 3,
-    Var100 = 100,
-    Var101,
-}
-
-/// Adds something to a global counter
-#[mlua_bindgen]
-pub fn do_something(_: &mlua::Lua, what: u32) -> f32 {
-    Ok(0.75)
-}
-
-/// Adds something to a global counter
-#[mlua_bindgen]
-pub fn do_something_better(_: &mlua::Lua, what: u32, other: String) -> [String; 3] {
-    Ok(["".to_owned(), "".to_owned(), "".to_owned()])
 }
 
 fn main() {
