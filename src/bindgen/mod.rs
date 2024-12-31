@@ -5,12 +5,15 @@
 
 use shared::mods::{parse_mod, ParsedModule};
 use shared::utils::{parse_attributes, ItemAttributes, MLUA_BINDGEN_ATTR};
+use walkdir::WalkDir;
 use std::fs::{self, FileType};
 use std::{collections::HashMap, path::PathBuf};
 use syn::Item;
 use syn::Attribute;
 use types::{LuaFile, LuaModule};
 use utils::{find_attr, get_attribute_args};
+
+use crate::error::BindgenError;
 
 mod types;
 mod utils;
@@ -22,8 +25,23 @@ pub struct ParsedFile {
 }
 
 impl ParsedFile {
+    /// Create self from a collection of other parsed files.
+    /// 
+    /// This is useful when parsing a lot of files together and then reuniting all found modules 
+    fn from_parsed_files(parsed_files: Vec<ParsedFile>) -> Self {
+        let mut mods = Vec::new();
+
+        for parsed_file in parsed_files {
+            mods.extend(parsed_file.mods.into_iter());
+        }
+
+        Self {
+            mods
+        }
+    }
+
     /// Transform all parsed structure into Lua structures
-    pub fn transform_to_lua<'a>(self) -> anyhow::Result<LuaFile<'a>> {
+    pub fn transform_to_lua<'a>(self) -> Result<LuaFile<'a>, BindgenError> {
         let mut lua_file = LuaFile::new();
 
         // TODO: This is an absolute mess of a code, please fix this later
@@ -37,7 +55,7 @@ impl ParsedFile {
             let lua_mod = LuaModule::from_parsed(parsed_mod)?;
             if lua_mod.ismain {
                 if main_mod.is_some() {
-                    panic!("Found more than 2 main modules. Only 1 can be present at the same time");
+                    return Err(BindgenError::MainModules { many: true });
                 } else {
                     main_mod = Some(lua_mod);
                 }
@@ -45,9 +63,8 @@ impl ParsedFile {
                 mod_map.insert(lua_mod.name.clone(), lua_mod);
             }
         }
-        println!("Got modules: {:}", mod_map.len());
 
-        let main_mod = main_mod.expect("Bindgen requires a main module to be present");
+        let main_mod = main_mod.ok_or(BindgenError::MainModules { many: false })?;
 
         // Now we need to insert modules appropriately, starting from the main module
         loop {
@@ -145,6 +162,7 @@ pub fn load_file(path: impl Into<PathBuf>) -> syn::Result<ParsedFile> {
     parse_file(file)
 }
 
+/// A builder struct for setting input files, the output file and starting the parsing process.
 pub struct BindgenTransformer {
     pub in_paths: Vec<PathBuf>,
     pub out_path: Option<PathBuf>
@@ -164,26 +182,25 @@ impl BindgenTransformer {
         self
     }
 
-    /// Add an entire directory 
+    /// Add an entire directory and its inner files. 
     pub fn add_input_dir(mut self, dir: impl Into<PathBuf>) -> Self {
-        if let Ok(files) = std::fs::read_dir(dir.into()) {
-            for file in files {
-                let file = match file {
-                    Ok(file) => file,
-                    Err(_) => continue
-                };
+        for entry in WalkDir::new(dir.into())
+            .max_depth(1)
+            .into_iter()
+            .filter_map(|e| e.ok()) 
+        {
+            if !entry.file_type().is_file() {
+                continue
+            }
 
-                // TODO: Add a check here for directory types
+            let file_name = entry.file_name();
+            let file_name = match file_name.to_str() {
+                Some(file_name) => file_name,
+                None => continue
+            };
 
-                let file_name = file.file_name();
-                let file_name = match file_name.to_str() {
-                    Some(file_name) => file_name,
-                    None => continue
-                };
-
-                if file_name.ends_with(".rs") {
-                    self.in_paths.push(file.path());
-                }
+            if file_name.ends_with(".rs") {
+                self.in_paths.push(entry.path().into());
             }
         }
 
@@ -196,5 +213,18 @@ impl BindgenTransformer {
     pub fn set_output_path(mut self, path: impl Into<PathBuf>) -> Self {
         self.out_path = Some(path.into());
         self
+    }
+
+    /// Start parsing the files and collect modules into a [ParsedFile]
+    pub fn parse(self) -> Result<ParsedFile, BindgenError> {
+        let mut parsed_files = Vec::new();
+
+        for in_path in self.in_paths {
+            let src = fs::read_to_string(in_path)?;
+            let file = syn::parse_file(&src)?;
+            parsed_files.push(parse_file(file)?);
+        }
+
+        Ok(ParsedFile::from_parsed_files(parsed_files))
     }
 }

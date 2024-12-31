@@ -1,3 +1,7 @@
+mod imported;
+
+use imported::imported_module;
+
 static COUNTER: AtomicU32 = AtomicU32::new(5);
 
 #[mlua_bindgen]
@@ -64,7 +68,7 @@ mod inner {
     }
 }
 
-#[mlua_bindgen(main, include = [inner_module])]
+#[mlua_bindgen(main, include = [inner_module, imported_module])]
 mod main {
     use std::sync::atomic::Ordering;
 
