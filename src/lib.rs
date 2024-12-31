@@ -1,6 +1,6 @@
 pub use macros::mlua_bindgen;
 
-// #[cfg(feature = "bindgen")]
+#[cfg(feature = "bindgen")]
 pub mod bindgen;
 pub mod error;
 
