@@ -6,6 +6,8 @@ use shared::{
 use std::{collections::HashMap, fmt::Write, sync::LazyLock};
 use syn::{Pat, Type};
 
+use crate::error::BindgenError;
+
 use super::expand::LuaExpand;
 
 type TypeMap<'a> = HashMap<&'a str, LuaType>;
@@ -153,7 +155,7 @@ pub struct LuaFunc {
 }
 
 impl LuaFunc {
-    pub fn from_parsed(parsed: ParsedFunc) -> anyhow::Result<Self> {
+    pub fn from_parsed(parsed: ParsedFunc) -> Result<Self, BindgenError> {
         let name = parsed.name.to_string();
         let return_ty = LuaType::from_syn_ty(&parsed.return_ty);
 
@@ -256,7 +258,7 @@ pub struct LuaStruct {
 }
 
 impl LuaStruct {
-    pub fn from_parsed(parsed: ParsedImpl) -> anyhow::Result<Self> {
+    pub fn from_parsed(parsed: ParsedImpl) -> Result<Self, BindgenError> {
         let name = parsed.name.to_token_stream().to_string();
 
         let mut funcs = Vec::new();
@@ -301,7 +303,7 @@ pub struct LuaEnum {
 }
 
 impl LuaEnum {
-    pub fn from_parsed(parsed: ParsedEnum) -> anyhow::Result<Self> {
+    pub fn from_parsed(parsed: ParsedEnum) -> Result<Self, BindgenError> {
         let name = parsed.ident.to_string();
 
         let variants = parsed
@@ -335,7 +337,7 @@ pub struct LuaModule {
 }
 
 impl LuaModule {
-    pub fn from_parsed(parsed: ParsedModule) -> anyhow::Result<Self> {
+    pub fn from_parsed(parsed: ParsedModule) -> Result<Self, BindgenError> {
         let name = parsed.ident.to_string();
         let ismain = parsed.ismain;
         let mut funcs = Vec::new();
@@ -413,10 +415,15 @@ impl<'a> LuaFile<'a> {
     /// 
     /// # Warning
     /// This will expand the source code each time from scratch
-    pub fn write(self, to: &mut impl std::io::Write) {
+    pub fn write(&self, to: &mut impl std::io::Write) {
+        to.write(self.to_string().as_bytes()).unwrap();
+    }
+
+    /// Convert the LuaFile to a Lua source string
+    pub fn to_string(&self) -> String {
         let mut src = String::new();
 
-        for item in self.items {
+        for item in self.items.iter() {
             let (global_expanded, inner_expanded) = item.lua_expand(false);
             
             if !global_expanded.is_empty() {
@@ -428,6 +435,6 @@ impl<'a> LuaFile<'a> {
             }
         }
 
-        to.write(&src.as_bytes());
+        src
     }
 }
