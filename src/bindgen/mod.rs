@@ -183,7 +183,7 @@ impl BindgenTransformer {
     }
 
     fn push_dir(&mut self, dir: PathBuf, depth: usize) {
-        for entry in WalkDir::new(dir)
+        for entry in WalkDir::new::<PathBuf>(dir)
             .max_depth(depth)
             .into_iter()
             .filter_map(|e| e.ok()) 
