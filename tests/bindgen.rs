@@ -3,11 +3,11 @@
 
 #[cfg(feature="bindgen")]
 use mlua_bindgen::bindgen::BindgenTransformer;
-use mlua_bindgen::error::BindgenError;
+use mlua_bindgen::error::Error;
 
 #[cfg(feature="bindgen")]
 #[test]
-fn main() -> Result<(), BindgenError>{
+fn main() -> Result<(), Error>{
 
     let lua_src = BindgenTransformer::new()
         .add_input_dir("tests\\bindgen")
