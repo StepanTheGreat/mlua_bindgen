@@ -10,7 +10,7 @@ use mlua_bindgen::error::Error;
 fn main() -> Result<(), Error>{
 
     let lua_src = BindgenTransformer::new()
-        .add_input_dir("tests\\bindgen")
+        .add_input_dir("./tests/bindgen")
         .parse()?
         .transform_to_lua()?
         .to_string();
