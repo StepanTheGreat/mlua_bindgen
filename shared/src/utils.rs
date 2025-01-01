@@ -90,7 +90,8 @@ impl Parse for ItemAttributes {
             } else if ident == "main" {
                 ItemAttribute::IsMain
             } else if ident == "preserve" {
-                ItemAttribute::Preserve
+                unimplemented!("The preserve keyword is unimplemented for now");
+                // ItemAttribute::Preserve
             } else {
                 return Err(syn::Error::new_spanned(
                     ident,
