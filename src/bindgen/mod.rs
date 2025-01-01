@@ -210,6 +210,11 @@ impl BindgenTransformer {
         self
     }
 
+    /// Add a directory and its inner files based on depth (i.e. files of inner directories, and so on)
+    /// 
+    /// - 0 Means only the the file path itself
+    /// - 1 is for the file path itself and its inner files
+    /// - 2... to account for inner-inner files and so on.
     pub fn add_input_dir_with_depth(mut self, dir: impl Into<PathBuf>, depth: usize) -> Self {
         self.push_dir(dir.into(), depth);
         self
