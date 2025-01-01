@@ -401,19 +401,19 @@ pub struct LuaFile<'a> {
 }
 
 impl<'a> LuaFile<'a> {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             items: Vec::new()
         }
     }
 
     /// Add an item that implements [LuaExpand] to the list
-    pub fn add_item(&mut self, item: impl LuaExpand + 'a) {
+    pub(crate) fn add_item(&mut self, item: impl LuaExpand + 'a) {
         self.items.push(Box::new(item));
     }
 
     /// Add a vector of items that implement [LuaExpand]
-    pub fn add_items(&mut self, items: Vec<impl LuaExpand + 'a>) {
+    pub(crate) fn add_items(&mut self, items: Vec<impl LuaExpand + 'a>) {
         for item in items {
             self.add_item(item);
         }

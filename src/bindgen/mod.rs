@@ -21,7 +21,7 @@ mod expand;
 
 /// A collection of all mlua_bindgen items in a single structure
 pub struct ParsedFile {
-    pub mods: Vec<ParsedModule>,
+    mods: Vec<ParsedModule>,
 }
 
 impl ParsedFile {
@@ -182,10 +182,9 @@ impl BindgenTransformer {
         self
     }
 
-    /// Add an entire directory and its inner files. 
-    pub fn add_input_dir(mut self, dir: impl Into<PathBuf>) -> Self {
-        for entry in WalkDir::new(dir.into())
-            .max_depth(1)
+    fn push_dir(&mut self, dir: PathBuf, depth: usize) {
+        for entry in WalkDir::new(dir)
+            .max_depth(depth)
             .into_iter()
             .filter_map(|e| e.ok()) 
         {
@@ -203,7 +202,16 @@ impl BindgenTransformer {
                 self.in_paths.push(entry.path().into());
             }
         }
+    }
 
+    /// Add an entire directory and its inner files. 
+    pub fn add_input_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.push_dir(dir.into(), 1);
+        self
+    }
+
+    pub fn add_input_dir_with_depth(mut self, dir: impl Into<PathBuf>, depth: usize) -> Self {
+        self.push_dir(dir.into(), depth);
         self
     }
 
