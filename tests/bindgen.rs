@@ -3,17 +3,18 @@
 
 #[cfg(feature="bindgen")]
 use mlua_bindgen::bindgen::BindgenTransformer;
+use mlua_bindgen::error::BindgenError;
 
 #[cfg(feature="bindgen")]
 #[test]
-fn main() {
+fn main() -> Result<(), BindgenError>{
+
     let lua_src = BindgenTransformer::new()
         .add_input_dir("tests\\bindgen")
-        .parse()
-        .unwrap()
-        .transform_to_lua()
-        .unwrap()
+        .parse()?
+        .transform_to_lua()?
         .to_string();
 
-    std::fs::write("test.d.luau", lua_src).unwrap();
+    std::fs::write("test.d.luau", lua_src)?;
+    Ok(())
 }

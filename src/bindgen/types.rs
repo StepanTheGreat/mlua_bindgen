@@ -1,7 +1,7 @@
 //! Lua types defined as structures
 
 use shared::{
-    enums::ParsedEnum, funcs::ParsedFunc, impls::{FieldKind, ParsedImpl}, mods::{ModuleItem, ModulePath, ParsedModule}, utils::LastPathIdent, ToTokens
+    enums::ParsedEnum, funcs::ParsedFunc, impls::{FieldKind, ParsedImpl}, mods::{ModuleItem, ModulePath, ParsedModule}, utils::{remove_lua_prefix, LastPathIdent}, ToTokens
 };
 use std::{collections::HashMap, fmt::Write, sync::LazyLock};
 use syn::{Pat, Type};
@@ -74,7 +74,9 @@ impl LuaType {
     pub fn from_syn_ident(ident: &syn::Ident) -> Self {
         match TYPE_MAP.get(ident.to_string().as_str()) {
             Some(ty) => ty.clone(),
-            None => LuaType::Custom(ident.to_string()),
+            None => LuaType::Custom(
+                remove_lua_prefix(ident.to_string())
+            ),
         }
     }
 
@@ -157,6 +159,8 @@ pub struct LuaFunc {
 impl LuaFunc {
     pub fn from_parsed(parsed: ParsedFunc) -> Result<Self, BindgenError> {
         let name = parsed.name.to_string();
+        let name = remove_lua_prefix(name);
+
         let return_ty = LuaType::from_syn_ty(&parsed.return_ty);
 
         // Get the amount of required arguments by mlua. These have no use in luau declaration
@@ -260,6 +264,8 @@ pub struct LuaStruct {
 impl LuaStruct {
     pub fn from_parsed(parsed: ParsedImpl) -> Result<Self, BindgenError> {
         let name = parsed.name.to_token_stream().to_string();
+        // Remove the lua prefix of course, if it's present
+        let name = remove_lua_prefix(name);
 
         let mut funcs = Vec::new();
         let mut fields = Vec::new();
@@ -305,6 +311,7 @@ pub struct LuaEnum {
 impl LuaEnum {
     pub fn from_parsed(parsed: ParsedEnum) -> Result<Self, BindgenError> {
         let name = parsed.ident.to_string();
+        let name = remove_lua_prefix(name);
 
         let variants = parsed
             .variants
@@ -339,6 +346,7 @@ pub struct LuaModule {
 impl LuaModule {
     pub fn from_parsed(parsed: ParsedModule) -> Result<Self, BindgenError> {
         let name = parsed.ident.to_string();
+
         let ismain = parsed.ismain;
         let mut funcs = Vec::new();
         let mut impls = Vec::new();
