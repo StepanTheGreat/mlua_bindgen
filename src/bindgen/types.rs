@@ -6,7 +6,7 @@ use shared::{
 use std::{collections::HashMap, fmt::Write, sync::LazyLock};
 use syn::{Pat, Type};
 
-use crate::error::BindgenError;
+use crate::error::Error;
 
 use super::expand::LuaExpand;
 
@@ -157,7 +157,7 @@ pub struct LuaFunc {
 }
 
 impl LuaFunc {
-    pub fn from_parsed(parsed: ParsedFunc) -> Result<Self, BindgenError> {
+    pub fn from_parsed(parsed: ParsedFunc) -> Result<Self, Error> {
         let name = parsed.name.to_string();
         let name = remove_lua_prefix(name);
 
@@ -262,7 +262,7 @@ pub struct LuaStruct {
 }
 
 impl LuaStruct {
-    pub fn from_parsed(parsed: ParsedImpl) -> Result<Self, BindgenError> {
+    pub fn from_parsed(parsed: ParsedImpl) -> Result<Self, Error> {
         let name = parsed.name.to_token_stream().to_string();
         // Remove the lua prefix of course, if it's present
         let name = remove_lua_prefix(name);
@@ -309,7 +309,7 @@ pub struct LuaEnum {
 }
 
 impl LuaEnum {
-    pub fn from_parsed(parsed: ParsedEnum) -> Result<Self, BindgenError> {
+    pub fn from_parsed(parsed: ParsedEnum) -> Result<Self, Error> {
         let name = parsed.ident.to_string();
         let name = remove_lua_prefix(name);
 
@@ -344,7 +344,7 @@ pub struct LuaModule {
 }
 
 impl LuaModule {
-    pub fn from_parsed(parsed: ParsedModule) -> Result<Self, BindgenError> {
+    pub fn from_parsed(parsed: ParsedModule) -> Result<Self, Error> {
         let name = parsed.ident.to_string();
 
         let ismain = parsed.ismain;

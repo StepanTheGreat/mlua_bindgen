@@ -6,14 +6,14 @@
 use shared::mods::{parse_mod, ParsedModule};
 use shared::utils::{parse_attributes, ItemAttributes, MLUA_BINDGEN_ATTR};
 use walkdir::WalkDir;
-use std::fs::{self, FileType};
+use std::fs;
 use std::{collections::HashMap, path::PathBuf};
 use syn::Item;
 use syn::Attribute;
 use types::{LuaFile, LuaModule};
 use utils::{find_attr, get_attribute_args};
 
-use crate::error::BindgenError;
+use crate::error::Error;
 
 mod types;
 mod utils;
@@ -41,7 +41,7 @@ impl ParsedFile {
     }
 
     /// Transform all parsed structure into Lua structures
-    pub fn transform_to_lua<'a>(self) -> Result<LuaFile<'a>, BindgenError> {
+    pub fn transform_to_lua<'a>(self) -> Result<LuaFile<'a>, Error> {
         let mut lua_file = LuaFile::new();
 
         // TODO: This is an absolute mess of a code, please fix this later
@@ -50,12 +50,12 @@ impl ParsedFile {
         // We also check if any of them is main, and if so - we add it to a separate main_mod variable,
         // which will be important for us later
         let mut main_mod: Option<LuaModule> = None;
-        let mut mod_map = HashMap::new();
+        let mut mod_map: HashMap<String, LuaModule> = HashMap::new();
         for parsed_mod in self.mods {
             let lua_mod = LuaModule::from_parsed(parsed_mod)?;
             if lua_mod.ismain {
                 if main_mod.is_some() {
-                    return Err(BindgenError::MainModules { many: true });
+                    return Err(Error::MainModules { many: true });
                 } else {
                     main_mod = Some(lua_mod);
                 }
@@ -64,7 +64,7 @@ impl ParsedFile {
             }
         }
 
-        let main_mod = main_mod.ok_or(BindgenError::MainModules { many: false })?;
+        let main_mod = main_mod.ok_or(Error::MainModules { many: false })?;
 
         // Now we need to insert modules appropriately, starting from the main module
         loop {
@@ -216,7 +216,7 @@ impl BindgenTransformer {
     }
 
     /// Start parsing the files and collect modules into a [ParsedFile]
-    pub fn parse(self) -> Result<ParsedFile, BindgenError> {
+    pub fn parse(self) -> Result<ParsedFile, Error> {
         let mut parsed_files = Vec::new();
 
         for in_path in self.in_paths {
