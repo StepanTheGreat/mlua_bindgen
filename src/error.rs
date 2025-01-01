@@ -15,6 +15,9 @@ pub enum Error {
         /// there are zero.
         many: bool
     },
+    Unimplemented {
+        message: String
+    }
 }
 
 impl Error {
@@ -35,6 +38,10 @@ impl Error {
                     "No main module found, can't construct a declaration file"
                 };
                 write!(f, "{msg}")
+            },
+
+            Self::Unimplemented { message } => {
+                write!(f, "{message}")
             }
         }
     }

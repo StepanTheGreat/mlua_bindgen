@@ -70,8 +70,13 @@ pub enum LuaType {
 
 impl LuaType {
     /// Stringify the ident token, then try to match it against the TYPE_MAP.
+    /// 
     /// If successful - returns [`Some<Self>`]
     pub fn from_syn_ident(ident: &syn::Ident) -> Self {
+
+        // The thinking here is that, in mlua API, only types that implment mlua::IntoLua can be used in the Lua runtime
+        // There's also a default type list which already implements this trait, so taking that into the account,
+        // we will guess that any types that can't be mapped is a custom Lua type.
         match TYPE_MAP.get(ident.to_string().as_str()) {
             Some(ty) => ty.clone(),
             None => LuaType::Custom(
@@ -82,23 +87,24 @@ impl LuaType {
 
     /// Try to convert a syn type to a [`LuaType`]. If the type isn't recognized,
     /// it's likely it's a custom type, so we'll just make a new one.
-    pub fn from_syn_ty(ty: &Type) -> Self {
-        match ty {
-            Type::Array(ty_arr) => Self::Array(Box::new(Self::from_syn_ty(&ty_arr.elem))),
+    pub fn from_syn_ty(ty: &Type) -> Result<Self, Error> {
+        let lua_ty = match ty {
+            Type::Array(ty_arr) => Self::Array(Box::new(Self::from_syn_ty(&ty_arr.elem)?)),
             Type::Path(ty_path) => {
                 let ident = ty_path.path.last_ident();
                 Self::from_syn_ident(ident)
             }
-            Type::Reference(ty_ref) => Self::from_syn_ty(&ty_ref.elem),
+            Type::Reference(ty_ref) => Self::from_syn_ty(&ty_ref.elem)?,
             Type::Tuple(tup) => {
                 if !tup.elems.is_empty() {
-                    unimplemented!("Multi-value tuples aren't supported currently");
+                    return Err(Error::Unimplemented { message: "Multi-value tuples aren't supported currently".to_owned() });
                 } else {
                     Self::Void
                 }
             }
-            _ => unimplemented!("For now only arrays and type paths are supported"),
-        }
+            _ => return Err(Error::Unimplemented { message: "For now only arrays and type paths are supported".to_owned() })
+        };
+        Ok(lua_ty)
     }
 }
 
@@ -161,7 +167,7 @@ impl LuaFunc {
         let name = parsed.name.to_string();
         let name = remove_lua_prefix(name);
 
-        let return_ty = LuaType::from_syn_ty(&parsed.return_ty);
+        let return_ty = LuaType::from_syn_ty(&parsed.return_ty)?;
 
         // Get the amount of required arguments by mlua. These have no use in luau declaration
         let skip_args = parsed.req_arg_count();
@@ -179,7 +185,7 @@ impl LuaFunc {
             };
             args.push(LuaArg {
                 name: arg_name,
-                ty: LuaType::from_syn_ty(&arg.ty),
+                ty: LuaType::from_syn_ty(&arg.ty)?,
                 optional: false, // TODO: In the future, the argument should be optional if it's of type Option<T>
             });
         }
@@ -284,7 +290,7 @@ impl LuaStruct {
         for field in parsed.fields {
             if let FieldKind::Getter = field.kind {
                 let fname = field.func.name.to_string();
-                let fty = LuaType::from_syn_ty(&field.func.return_ty);
+                let fty = LuaType::from_syn_ty(&field.func.return_ty)?;
                 fields.push(LuaField {
                     name: fname,
                     ty: fty,
