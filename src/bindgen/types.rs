@@ -55,6 +55,8 @@ pub enum LuaType {
     String,
     Function,
     Array(Box<LuaType>),
+    /// Tuples can only be used as return types 
+    Tuple(Vec<LuaType>),
     Error,
     Table,
     Thread,
@@ -97,7 +99,12 @@ impl LuaType {
             Type::Reference(ty_ref) => Self::from_syn_ty(&ty_ref.elem)?,
             Type::Tuple(tup) => {
                 if !tup.elems.is_empty() {
-                    return Err(Error::Unimplemented { message: "Multi-value tuples aren't supported currently".to_owned() });
+                    let mut tys: Vec<LuaType> = Vec::new();
+                    for ty in tup.elems.iter() {
+                        tys.push(LuaType::from_syn_ty(ty)?);
+                    }
+                    Self::Tuple(tys)
+                    // return Err(Error::Unimplemented { message: "Multi-value tuples aren't supported currently".to_owned() });
                 } else {
                     Self::Void
                 }
@@ -127,6 +134,22 @@ impl std::fmt::Display for LuaType {
                 LuaType::Nil => "nil".to_owned(),
                 LuaType::Void => "()".to_owned(),
                 LuaType::Custom(ty) => ty.clone(),
+                LuaType::Tuple(tys) => {
+                    if tys.len() == 1 {
+                        format!("({})", tys[0])
+                    } else {
+                        let mut result = String::new();
+                        for (ind, ty) in tys.iter().enumerate() {
+                            if ind == 0 {
+                                result.push_str(&ty.to_string());
+                            } else {
+                                result.push_str(&(", ".to_owned() + &ty.to_string()));
+                            }
+                        }
+
+                        format!("({result})")
+                    }
+                }
             }
         )
     }
@@ -450,5 +473,28 @@ impl<'a> LuaFile<'a> {
         }
 
         src
+    }
+}
+
+mod test {
+    use super::LuaType;
+
+    #[test]
+    fn lua_types() {
+        let array = LuaType::Array(Box::new(LuaType::Boolean));
+        assert_eq!(array.to_string(), "{boolean}".to_owned());
+
+        let tuple = LuaType::Tuple(vec![
+            LuaType::Boolean,
+            LuaType::Custom("MyType".to_owned()),
+            LuaType::Number,
+            LuaType::Nil
+        ]);
+
+        assert_eq!(tuple.to_string(), "(boolean, MyType, number, nil)".to_owned());
+
+        let single_tuple = LuaType::Tuple(vec![LuaType::String]);
+
+        assert_eq!(single_tuple.to_string(), "(string)".to_owned());
     }
 }
