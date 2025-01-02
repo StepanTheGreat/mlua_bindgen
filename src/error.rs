@@ -6,7 +6,6 @@ pub enum Error {
     Syn(syn::Error),
     IO(std::io::Error),
     ParseErr {
-        at: String,
         message: String,
     },
     /// No main module present
@@ -27,8 +26,8 @@ impl Error {
     
             Self::IO(err) => write!(f, "{err}"),
     
-            Self::ParseErr {at, message} => {
-                write!(f, "Caught a parsing error on {at}: {message}")
+            Self::ParseErr {message} => {
+                write!(f, "Got a parsing error: {message}")
             },
     
             Self::MainModules {many} => {
