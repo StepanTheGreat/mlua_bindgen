@@ -30,6 +30,7 @@ pub fn add_tabs(s: String, amount: usize) -> String {
     })
 }
 
+#[cfg(test)]
 mod tests {
     use crate::bindgen::utils::add_tabs;
 

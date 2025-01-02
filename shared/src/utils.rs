@@ -215,6 +215,7 @@ pub fn remove_lua_prefix(s: String) -> String {
     }
 }
 
+#[cfg(test)]
 mod test {
     use crate::utils::remove_lua_prefix;
 
