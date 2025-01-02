@@ -1,9 +1,19 @@
 //! Lua types defined as structures
 
 use shared::{
-    enums::ParsedEnum, funcs::ParsedFunc, impls::{FieldKind, ParsedImpl}, mods::{ModuleItem, ModulePath, ParsedModule}, utils::{remove_lua_prefix, LastPathIdent}, ToTokens
+    enums::ParsedEnum,
+    funcs::ParsedFunc,
+    impls::{FieldKind, ParsedImpl},
+    mods::{ModuleItem, ModulePath, ParsedModule},
+    utils::{remove_lua_prefix, LastPathIdent},
+    ToTokens,
 };
-use std::{collections::HashMap, fmt::{write, Debug, Write}, path::Display, sync::LazyLock};
+use std::{
+    collections::HashMap,
+    fmt::{write, Debug, Write},
+    path::Display,
+    sync::LazyLock,
+};
 use syn::{GenericArgument, Pat, PathArguments, Type};
 
 use crate::error::Error;
@@ -55,13 +65,13 @@ pub enum LuaType {
     String,
     Function,
     /// Can only be used to declare optional arguments (i.e. "type?")
-    /// 
+    ///
     /// In mlua, this type is made using `Option<T>`, where `T` implements [IntoLua].
-    /// 
+    ///
     /// Recursive optionals aren't supported, though I'm sure there are tricks to make it valid
     Optional(Box<LuaType>),
     Array(Box<LuaType>),
-    /// Tuples can only be used as return types 
+    /// Tuples can only be used as return types
     Tuple(Vec<LuaType>),
     Error,
     Table,
@@ -78,39 +88,33 @@ pub enum LuaType {
 
 impl LuaType {
     /// Stringify the ident token, then try to match it against the TYPE_MAP.
-    /// 
+    ///
     /// If successful - returns [`Some<Self>`]
     pub fn from_syn_ident(ident: &syn::Ident) -> Self {
-
         // The thinking here is that, in mlua API, only types that implment mlua::IntoLua can be used in the Lua runtime
         // There's also a default type list which already implements this trait, so taking that into the account,
         // we will guess that any types that can't be mapped is a custom Lua type.
         match TYPE_MAP.get(ident.to_string().as_str()) {
             Some(ty) => ty.clone(),
-            None => LuaType::Custom(
-                remove_lua_prefix(ident.to_string())
-            ),
+            None => LuaType::Custom(remove_lua_prefix(ident.to_string())),
         }
     }
 
     /// Try to convert a syn type to a [`LuaType`]. If the type isn't recognized,
     /// it's likely it's a custom type, so we'll just make a new one.
     pub fn from_syn_ty(ty: &Type) -> Result<Self, Error> {
-
         let lua_ty = match ty {
             Type::Array(ty_arr) => Self::Array(Box::new(Self::from_syn_ty(&ty_arr.elem)?)),
             Type::Path(ty_path) => {
                 let ident = ty_path.path.last_ident();
                 // For Options we have a slightly different procedure.
                 if ident == "Option" {
-                    let lua_ty = Self::from_syn_ty(
-                        parse_option_ty(ty_path)?
-                    )?;
+                    let lua_ty = Self::from_syn_ty(parse_option_ty(ty_path)?)?;
 
                     if let Self::Optional(_) = lua_ty {
                         return Err(Error::ParseErr { message: "Lua optional types can't be recursive (i.e. contain an Option inside an Option)".to_owned() });
                     }
-                    
+
                     Self::Optional(Box::new(lua_ty))
                 } else {
                     Self::from_syn_ident(ident)
@@ -129,7 +133,11 @@ impl LuaType {
                     Self::Void
                 }
             }
-            _ => return Err(Error::Unimplemented { message: "For now only arrays and type paths are supported".to_owned() })
+            _ => {
+                return Err(Error::Unimplemented {
+                    message: "For now only arrays and type paths are supported".to_owned(),
+                })
+            }
         };
         Ok(lua_ty)
     }
@@ -138,7 +146,7 @@ impl LuaType {
     pub fn is_optional(&self) -> bool {
         match self {
             Self::Optional(_) => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -189,7 +197,7 @@ impl std::fmt::Display for LuaType {
 }
 
 /// Try parse an option type and return its inner type.
-/// 
+///
 /// This function can fail if the generic arguments are incorrect or the inner type is an option itself
 /// (this crate will try to avoid basic recursive behaviour)
 fn parse_option_ty(input: &syn::TypePath) -> Result<&Type, Error> {
@@ -197,11 +205,18 @@ fn parse_option_ty(input: &syn::TypePath) -> Result<&Type, Error> {
     if let PathArguments::AngleBracketed(args) = &segment.arguments {
         let inner_ty = match args.args[0] {
             GenericArgument::Type(ref ty) => ty,
-            _ => return Err(Error::Unimplemented { message: "A lua optional type has incorrect generic arguments".to_owned() })
+            _ => {
+                return Err(Error::Unimplemented {
+                    message: "A lua optional type has incorrect generic arguments".to_owned(),
+                })
+            }
         };
         Ok(inner_ty)
     } else {
-        Err(Error::ParseErr { message: "Failed to parse lua optional type's brackets. Expected angular brackets".to_owned() })
+        Err(Error::ParseErr {
+            message: "Failed to parse lua optional type's brackets. Expected angular brackets"
+                .to_owned(),
+        })
     }
 }
 
@@ -226,11 +241,11 @@ impl std::fmt::Display for LuaArg {
 }
 
 /// A return type for a luau function
-/// 
+///
 /// This only exists to simplify working with functions that return Option<T>
 pub struct LuaReturn {
     pub ty: LuaType,
-    pub optional: bool
+    pub optional: bool,
 }
 
 impl std::fmt::Display for LuaReturn {
@@ -269,10 +284,7 @@ impl LuaFunc {
             let ty = LuaType::from_syn_ty(&parsed.return_ty)?;
             let optional = ty.is_optional();
 
-            LuaReturn {
-                ty,
-                optional
-            }
+            LuaReturn { ty, optional }
         };
 
         // Get the amount of required arguments by mlua. These have no use in luau declaration
@@ -319,8 +331,8 @@ impl LuaFunc {
         string
     }
 
-    /// Format self as a function type. 
-    /// 
+    /// Format self as a function type.
+    ///
     /// It for example can be used in luau return types.
     /// Since `function` can't be used for returns, a more precise declaration is required:
     /// `(arg1, arg2, ...) -> return_type`
@@ -331,7 +343,7 @@ impl LuaFunc {
     }
 
     /// The same as [`LuaFunc::as_ty`], but for impl functions (class functions or methods)
-    /// 
+    ///
     /// It takes a type name as an argument, and will replace all `Self` keywords with the name
     /// of the type.
     pub fn as_ty_impl(&self, ty: &String, is_method: bool) -> String {
@@ -349,11 +361,12 @@ impl LuaFunc {
             "".to_owned()
         };
 
-        let self_comma = if is_method && !args.is_empty() { 
+        let self_comma = if is_method && !args.is_empty() {
             ", "
-        } else { 
+        } else {
             ""
-        }.to_owned();
+        }
+        .to_owned();
 
         // TODO: Sometimes arguments can be empty, so a trailing comma can cause issues in the future.
         format!("({self_arg}{self_comma}{args}) -> {return_ty}")
@@ -449,7 +462,7 @@ pub struct LuaModule {
     pub mods: Vec<LuaModule>,
     pub funcs: Vec<LuaFunc>,
     pub impls: Vec<LuaStruct>,
-    pub enums: Vec<LuaEnum>
+    pub enums: Vec<LuaEnum>,
 }
 
 impl LuaModule {
@@ -465,15 +478,15 @@ impl LuaModule {
             match item {
                 ModuleItem::Fn(func) => {
                     funcs.push(LuaFunc::from_parsed(func)?);
-                },
+                }
                 ModuleItem::Enum(enm) => {
                     enums.push(LuaEnum::from_parsed(enm)?);
-                },
+                }
                 ModuleItem::Impl(imp) => {
                     impls.push(LuaStruct::from_parsed(imp)?);
                 }
             }
-        }        
+        }
 
         Ok(Self {
             ismain,
@@ -483,7 +496,7 @@ impl LuaModule {
             mods: Vec::new(),
             funcs,
             impls,
-            enums
+            enums,
         })
     }
 
@@ -492,13 +505,12 @@ impl LuaModule {
         self.name == path.name()
     }
 
-    /// Insert a module and remove its name from the `includes` list (i.e. requested modules) 
+    /// Insert a module and remove its name from the `includes` list (i.e. requested modules)
     pub fn insert_module(&mut self, module: LuaModule) {
         let mod_name = &module.name;
         // Remove the name of this module from required modules
-        self.includes.retain(|mod_path| {
-            &mod_path.name() != mod_name
-        });
+        self.includes
+            .retain(|mod_path| &mod_path.name() != mod_name);
         self.mods.push(module);
     }
 }
@@ -506,14 +518,12 @@ impl LuaModule {
 /// Describes a lua file, which basically is similar to [`ParsedFile`], but contains
 /// useful information for Lua instead.
 pub struct LuaFile<'a> {
-    items: Vec<Box<dyn LuaExpand + 'a>>
+    items: Vec<Box<dyn LuaExpand + 'a>>,
 }
 
 impl<'a> LuaFile<'a> {
     pub(crate) fn new() -> Self {
-        Self {
-            items: Vec::new()
-        }
+        Self { items: Vec::new() }
     }
 
     /// Add an item that implements [LuaExpand] to the list
@@ -529,7 +539,7 @@ impl<'a> LuaFile<'a> {
     }
 
     /// Write all its contents to a provided type that implements [std::io::Write]
-    /// 
+    ///
     /// # Warning
     /// This will expand the source code each time from scratch
     pub fn write(&self, to: &mut impl std::io::Write) {
@@ -542,7 +552,7 @@ impl<'a> LuaFile<'a> {
 
         for item in self.items.iter() {
             let (global_expanded, inner_expanded) = item.lua_expand(false);
-            
+
             if !global_expanded.is_empty() {
                 let _ = writeln!(&mut src, "{global_expanded}");
             }
@@ -558,7 +568,7 @@ impl<'a> LuaFile<'a> {
 
 #[cfg(test)]
 mod test {
-    use super::{LuaType, Error};
+    use super::{Error, LuaType};
 
     #[test]
     fn lua_types() {
@@ -569,10 +579,13 @@ mod test {
             LuaType::Boolean,
             LuaType::Custom("MyType".to_owned()),
             LuaType::Number,
-            LuaType::Nil
+            LuaType::Nil,
         ]);
 
-        assert_eq!(tuple.to_string(), "(boolean, MyType, number, nil)".to_owned());
+        assert_eq!(
+            tuple.to_string(),
+            "(boolean, MyType, number, nil)".to_owned()
+        );
 
         let single_tuple = LuaType::Tuple(vec![LuaType::String]);
 
@@ -582,18 +595,14 @@ mod test {
     #[test]
     fn into_lua_types() -> Result<(), Error> {
         let optional = LuaType::from_syn_ty(&syn::parse_str("Option<u32>")?)?;
-        
+
         // Here we match if the Lua type is an Option itself, and if it is, we also check if its inner
         // type is a number
-        assert!(
-            matches!(optional, LuaType::Optional(inner) if matches!(*inner, LuaType::Number))
-        );
+        assert!(matches!(optional, LuaType::Optional(inner) if matches!(*inner, LuaType::Number)));
 
         // The same check for the array as well
         let array = LuaType::from_syn_ty(&syn::parse_str("[String; 12]")?)?;
-        assert!(
-            matches!(array, LuaType::Array(inner) if matches!(*inner, LuaType::String))
-        );
+        assert!(matches!(array, LuaType::Array(inner) if matches!(*inner, LuaType::String)));
 
         Ok(())
     }
@@ -602,7 +611,10 @@ mod test {
     fn fail_into_lua_types() -> Result<(), Error> {
         let recursive = LuaType::from_syn_ty(&syn::parse_str("Option<Option<u32>>")?);
 
-        assert!(recursive.is_err(), "Recursive option types should fail to parse");
+        assert!(
+            recursive.is_err(),
+            "Recursive option types should fail to parse"
+        );
         Ok(())
     }
 }

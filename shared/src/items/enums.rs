@@ -15,7 +15,7 @@ impl ParsedEnum {
     pub fn from_ident(ident: Ident) -> Self {
         Self {
             ident,
-            variants: Vec::new()
+            variants: Vec::new(),
         }
     }
 }

@@ -3,10 +3,15 @@ use std::collections::HashSet;
 use syn::{Ident, Item, ItemMod, Path, Visibility};
 
 use crate::utils::{
-    contains_attr, ToIdent, syn_error, ItemAttribute, ItemAttributes, LastPathIdent, MLUA_BINDGEN_ATTR
+    contains_attr, syn_error, ItemAttribute, ItemAttributes, LastPathIdent, ToIdent,
+    MLUA_BINDGEN_ATTR,
 };
 
-use super::{enums::{parse_enum, ParsedEnum}, funcs::{parse_func, FuncKind, ParsedFunc}, impls::{parse_impl, ParsedImpl}};
+use super::{
+    enums::{parse_enum, ParsedEnum},
+    funcs::{parse_func, FuncKind, ParsedFunc},
+    impls::{parse_impl, ParsedImpl},
+};
 
 pub const MODULE_SUFFIX: &str = "_module";
 
@@ -77,10 +82,14 @@ pub struct ParsedModule {
 }
 
 /// Try parse an ItemMod into a ParsedModule.
-/// 
+///
 /// `parse_items` tells whether to parse module items entirely, or just create dummy
 /// items from their ident/types. This is just to avoid useless parsing when macro expands
-pub fn parse_mod(attrs: ItemAttributes, item: ItemMod, parse_items: bool) -> syn::Result<ParsedModule> {
+pub fn parse_mod(
+    attrs: ItemAttributes,
+    item: ItemMod,
+    parse_items: bool,
+) -> syn::Result<ParsedModule> {
     let ident = item.ident;
     let mut ismain = false;
     let visibility = item.vis;
@@ -92,12 +101,8 @@ pub fn parse_mod(attrs: ItemAttributes, item: ItemMod, parse_items: bool) -> syn
     // Here we care only about 2 attributes: Includes and IsMain
     for attr in attrs.0 {
         match attr {
-            ItemAttribute::Includes(paths) => {
-                included = paths
-            },
-            ItemAttribute::IsMain => {
-                ismain = true
-            },
+            ItemAttribute::Includes(paths) => included = paths,
+            ItemAttribute::IsMain => ismain = true,
             ItemAttribute::Preserve => {}
         }
     }
@@ -121,7 +126,7 @@ pub fn parse_mod(attrs: ItemAttributes, item: ItemMod, parse_items: bool) -> syn
     // Now we iterate actual module items, and if they contain the [`MLUA_BINDGEN_ATTR`] attribute -
     // we add their module registration code to the exports.
     if let Some((_, mod_items)) = item.content {
-        // TODO: Parsing module items for macros is expensive and useless. 
+        // TODO: Parsing module items for macros is expensive and useless.
         // TODO: Make a simplified version, where only the name get passed.
         for mod_item in mod_items {
             let new_item = match mod_item {
@@ -130,40 +135,34 @@ pub fn parse_mod(attrs: ItemAttributes, item: ItemMod, parse_items: bool) -> syn
                         continue;
                     }
 
-                    ModuleItem::Fn(
-                        if parse_items { 
-                            parse_func(mod_fn, &FuncKind::Func)? 
-                        } else {
-                            ParsedFunc::from_ident(mod_fn.sig.ident)
-                        }
-                    )
-                },
+                    ModuleItem::Fn(if parse_items {
+                        parse_func(mod_fn, &FuncKind::Func)?
+                    } else {
+                        ParsedFunc::from_ident(mod_fn.sig.ident)
+                    })
+                }
                 Item::Enum(mod_enum) => {
                     if !contains_attr(&mod_enum.attrs, MLUA_BINDGEN_ATTR) {
                         continue;
                     }
 
-                    ModuleItem::Enum(
-                        if parse_items { 
-                            parse_enum(mod_enum)?
-                        } else {
-                            ParsedEnum::from_ident(mod_enum.ident)
-                        }
-                    )
-                },
+                    ModuleItem::Enum(if parse_items {
+                        parse_enum(mod_enum)?
+                    } else {
+                        ParsedEnum::from_ident(mod_enum.ident)
+                    })
+                }
                 Item::Impl(mod_impl) => {
                     if !contains_attr(&mod_impl.attrs, MLUA_BINDGEN_ATTR) {
                         continue;
                     }
 
-                    ModuleItem::Impl(
-                        if parse_items {
-                            parse_impl(mod_impl)?
-                        } else {
-                            ParsedImpl::from_ty(*mod_impl.self_ty)
-                        }
-                    )
-                },
+                    ModuleItem::Impl(if parse_items {
+                        parse_impl(mod_impl)?
+                    } else {
+                        ParsedImpl::from_ty(*mod_impl.self_ty)
+                    })
+                }
                 Item::Mod(mod_mod) => return Err(syn_error(
                     mod_mod,
                     "Can't implement recursive modules. You should combine them separately for now",

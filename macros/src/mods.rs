@@ -4,7 +4,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use shared::{
     items::mods::{parse_mod, ModuleItem},
-    utils::{remove_lua_prefix, ToIdent, ItemAttributes},
+    utils::{remove_lua_prefix, ItemAttributes, ToIdent},
 };
 use syn::ItemMod;
 
@@ -45,10 +45,10 @@ pub fn expand_mod(attrs: ItemAttributes, input: TokenStream2, item: ItemMod) -> 
         exports.push(match exported {
             ModuleItem::Enum(item) => {
                 let name = item.ident.to_token_stream();
-                
+
                 // Sometimes making wrappers is annoying because of name collisions.
                 // Unprefixed names exist in this case to separate lua functions/types from original
-                // rust functions/types. 
+                // rust functions/types.
                 //
                 // This function will remove any "lua" or "lua_" prefixes from the string,
                 // and automatically insert them in the table. THIS, however, doesn't rename the type/function's name

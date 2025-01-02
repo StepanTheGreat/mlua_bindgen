@@ -5,19 +5,19 @@
 
 use shared::mods::{parse_mod, ParsedModule};
 use shared::utils::{parse_attributes, ItemAttributes, MLUA_BINDGEN_ATTR};
-use walkdir::WalkDir;
 use std::fs;
 use std::{collections::HashMap, path::PathBuf};
-use syn::Item;
 use syn::Attribute;
+use syn::Item;
 use types::{LuaFile, LuaModule};
 use utils::{find_attr, get_attribute_args};
+use walkdir::WalkDir;
 
 use crate::error::Error;
 
+mod expand;
 mod types;
 mod utils;
-mod expand;
 
 /// A collection of all mlua_bindgen items in a single structure
 pub struct ParsedFile {
@@ -26,8 +26,8 @@ pub struct ParsedFile {
 
 impl ParsedFile {
     /// Create self from a collection of other parsed files.
-    /// 
-    /// This is useful when parsing a lot of files together and then reuniting all found modules 
+    ///
+    /// This is useful when parsing a lot of files together and then reuniting all found modules
     fn from_parsed_files(parsed_files: Vec<ParsedFile>) -> Self {
         let mut mods = Vec::new();
 
@@ -35,9 +35,7 @@ impl ParsedFile {
             mods.extend(parsed_file.mods.into_iter());
         }
 
-        Self {
-            mods
-        }
+        Self { mods }
     }
 
     /// Transform all parsed structure into Lua structures
@@ -45,8 +43,8 @@ impl ParsedFile {
         let mut lua_file = LuaFile::new();
 
         // TODO: This is an absolute mess of a code, please fix this later
-    
-        // Here we parse and collect all lua modules. 
+
+        // Here we parse and collect all lua modules.
         // We also check if any of them is main, and if so - we add it to a separate main_mod variable,
         // which will be important for us later
         let mut main_mod: Option<LuaModule> = None;
@@ -71,28 +69,33 @@ impl ParsedFile {
             // A tuple of parent module, and a list of modules to be inserted into them
             let mut insertions: HashMap<String, Vec<String>> = HashMap::new();
             for (mod_name, module) in mod_map.iter() {
-                if module.includes.is_empty() { continue };
+                if module.includes.is_empty() {
+                    continue;
+                };
 
                 // Iterate over all module paths this module requires
                 for needed_path in module.includes.iter() {
                     // Check whether it exists in the map
                     if let Some(needed_mod) = mod_map.get(&needed_path.name()) {
-                        // Also make sure that the found module doesn't include anything. If it does - 
+                        // Also make sure that the found module doesn't include anything. If it does -
                         // we need to resolve that module first.
                         if needed_mod.includes.is_empty() {
                             if insertions.contains_key(mod_name) {
-                                insertions.get_mut(mod_name).unwrap().push(needed_mod.name.clone());
+                                insertions
+                                    .get_mut(mod_name)
+                                    .unwrap()
+                                    .push(needed_mod.name.clone());
                             } else {
-                                insertions.insert(mod_name.clone(),  vec![needed_mod.name.clone()]);
+                                insertions.insert(mod_name.clone(), vec![needed_mod.name.clone()]);
                             }
                         }
                     }
                 }
-            } 
+            }
 
             if insertions.is_empty() {
                 // No more insertions to make, the modules are prepared
-                break
+                break;
             } else {
                 // Iterate over all insertions, and insert them into their appropriate modules
                 for (mod_name, to_insert) in insertions.into_iter() {
@@ -107,12 +110,14 @@ impl ParsedFile {
         // Now we just need to insert all collected modules into the main namespace
 
         for module in mod_map.into_values() {
-            let contains = main_mod.includes.iter()
+            let contains = main_mod
+                .includes
+                .iter()
                 .find(|path| module.is(path))
                 .is_some();
 
             if contains {
-                lua_file.add_item(module)    
+                lua_file.add_item(module)
             }
         }
 
@@ -131,13 +136,11 @@ fn get_bindgen_attrs(item_attrs: &[Attribute]) -> Option<ItemAttributes> {
     let attr = find_attr(item_attrs, MLUA_BINDGEN_ATTR)?;
 
     match get_attribute_args(attr) {
-        Some(attr_tokens) => {
-            match parse_attributes(attr_tokens) {
-                Ok(attrs) => Some(attrs),
-                Err(_err) => None
-            }
+        Some(attr_tokens) => match parse_attributes(attr_tokens) {
+            Ok(attrs) => Some(attrs),
+            Err(_err) => None,
         },
-        None => Some(ItemAttributes::empty())
+        None => Some(ItemAttributes::empty()),
     }
 }
 
@@ -165,14 +168,14 @@ pub fn load_file(path: impl Into<PathBuf>) -> syn::Result<ParsedFile> {
 /// A builder struct for setting input files, the output file and starting the parsing process.
 pub struct BindgenTransformer {
     pub in_paths: Vec<PathBuf>,
-    pub out_path: Option<PathBuf>
+    pub out_path: Option<PathBuf>,
 }
 
 impl BindgenTransformer {
     pub fn new() -> Self {
         Self {
             in_paths: Vec::new(),
-            out_path: None
+            out_path: None,
         }
     }
 
@@ -186,16 +189,16 @@ impl BindgenTransformer {
         for entry in WalkDir::new::<PathBuf>(dir)
             .max_depth(depth)
             .into_iter()
-            .filter_map(|e| e.ok()) 
+            .filter_map(|e| e.ok())
         {
             if !entry.file_type().is_file() {
-                continue
+                continue;
             }
 
             let file_name = entry.file_name();
             let file_name = match file_name.to_str() {
                 Some(file_name) => file_name,
-                None => continue
+                None => continue,
             };
 
             if file_name.ends_with(".rs") {
@@ -204,14 +207,14 @@ impl BindgenTransformer {
         }
     }
 
-    /// Add an entire directory and its inner files. 
+    /// Add an entire directory and its inner files.
     pub fn add_input_dir(mut self, dir: impl Into<PathBuf>) -> Self {
         self.push_dir(dir.into(), 1);
         self
     }
 
     /// Add a directory and its inner files based on depth (i.e. files of inner directories, and so on)
-    /// 
+    ///
     /// - 0 Means only the the file path itself
     /// - 1 is for the file path itself and its inner files
     /// - 2... to account for inner-inner files and so on.
@@ -220,8 +223,8 @@ impl BindgenTransformer {
         self
     }
 
-    /// Set the output declaration file. 
-    /// 
+    /// Set the output declaration file.
+    ///
     /// A luau declaration file should end with `.d.lua`
     pub fn set_output_path(mut self, path: impl Into<PathBuf>) -> Self {
         self.out_path = Some(path.into());

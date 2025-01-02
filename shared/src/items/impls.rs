@@ -50,7 +50,7 @@ impl ParsedImpl {
             name,
             fields: Vec::new(),
             funcs: Vec::new(),
-            methods: Vec::new()
+            methods: Vec::new(),
         }
     }
 }

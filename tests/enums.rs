@@ -1,6 +1,7 @@
 use macros::mlua_bindgen;
 use mlua_bindgen::AsTable;
 
+#[allow(dead_code)]
 #[mlua_bindgen]
 enum GreatEnum {
     Var1,

@@ -1,6 +1,9 @@
 //! Everything related to expanding (i.e. transforming rust structures into luau source code strings)
 
-use super::{types::{LuaEnum, LuaFunc, LuaModule, LuaStruct}, utils::add_tabs};
+use super::{
+    types::{LuaEnum, LuaFunc, LuaModule, LuaStruct},
+    utils::add_tabs,
+};
 use std::fmt::Write;
 
 /// I'm not sure thy it's a trait, but okay - maybe for consistency.

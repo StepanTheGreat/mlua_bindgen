@@ -7,35 +7,35 @@ use mlua_bindgen::{mlua_bindgen, AsTable};
 static COUNTER: AtomicU32 = AtomicU32::new(5);
 
 pub struct Secret {
-    value: u32
+    value: u32,
 }
 
 pub struct LuaSecret(pub Secret);
 
 /// My multiplication
 pub fn mul(v1: f32, v2: f32) -> f32 {
-    v1*v2
+    v1 * v2
 }
 
 #[mlua_bindgen]
 mod inner {
-    use macros::mlua_bindgen;
     use super::mul;
+    use macros::mlua_bindgen;
 
     pub use super::LuaSecret;
 
-    /// I'm a colliding function bridge between rust and lua! 
-    /// 
-    /// Gladly, the [mlua_bindgen] macro for modules will remove any "lua" or "lua_" prefixes from 
+    /// I'm a colliding function bridge between rust and lua!
+    ///
+    /// Gladly, the [mlua_bindgen] macro for modules will remove any "lua" or "lua_" prefixes from
     /// their module items. (This doesn't affect the rust items though, only the keys in the module table)
-    /// 
+    ///
     /// For better understanding, the module table would look like this:
     /// ```
     /// {
     ///     "mul": lua_mul,
     ///     "MyType": LuaMyType
     /// }
-    /// ``` 
+    /// ```
     #[mlua_bindgen]
     pub fn lua_mul(_: &mlua::Lua, val1: f32, val2: f32) -> f32 {
         Ok(mul(val1, val2))
@@ -46,9 +46,7 @@ mod inner {
     impl LuaSecret {
         #[func]
         pub fn new(_: &Lua) -> Self {
-            Ok(
-                Self(crate::Secret { value: 44 })
-            )
+            Ok(Self(crate::Secret { value: 44 }))
         }
 
         #[method]
@@ -58,10 +56,7 @@ mod inner {
     }
 }
 
-#[mlua_bindgen(
-    include = [inner_module], 
-    main
-)]
+#[mlua_bindgen(main, include = [inner_module])]
 mod math {
     use std::sync::atomic::Ordering;
 
