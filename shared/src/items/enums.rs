@@ -2,20 +2,30 @@ use syn::{Expr, Ident, ItemEnum, Lit};
 
 use crate::utils::syn_error;
 
-type VariantValue = usize;
+pub type LuaVariantType = usize;
 
 /// Contains general enum information, that is important both for macros and bindgen parsers
 pub struct ParsedEnum {
     pub ident: Ident,
-    pub variants: Vec<(Ident, VariantValue)>,
+    pub variants: Vec<(Ident, LuaVariantType)>,
+}
+
+impl ParsedEnum {
+    /// An empty constructor exclusively to avoid enum parsing on macro expansion
+    pub fn from_ident(ident: Ident) -> Self {
+        Self {
+            ident,
+            variants: Vec::new()
+        }
+    }
 }
 
 /// Parse an [`ItemEnum`] into [`ParsedEnum`].
 pub fn parse_enum(item: ItemEnum) -> syn::Result<ParsedEnum> {
     let ident = item.ident;
-    let mut variants: Vec<(Ident, VariantValue)> = Vec::new();
+    let mut variants: Vec<(Ident, LuaVariantType)> = Vec::new();
 
-    let mut value: VariantValue = 0;
+    let mut value: LuaVariantType = 0;
     for variant in item.variants.into_iter() {
         let vident = variant.ident;
         if let Some((_, ref expr)) = variant.discriminant {
@@ -37,7 +47,7 @@ pub fn parse_enum(item: ItemEnum) -> syn::Result<ParsedEnum> {
                 ));
             };
 
-            if let Ok(val) = lit_int.base10_parse::<VariantValue>() {
+            if let Ok(val) = lit_int.base10_parse::<LuaVariantType>() {
                 value = val;
             } else {
                 return Err(syn_error(

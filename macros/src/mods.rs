@@ -4,7 +4,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use shared::{
     items::mods::{parse_mod, ModuleItem},
-    utils::{str_to_ident, ItemAttrs},
+    utils::{remove_lua_prefix, ToIdent, ItemAttributes},
 };
 use syn::ItemMod;
 
@@ -18,8 +18,8 @@ use shared::mods::MODULE_SUFFIX;
 ///
 /// This is used to import other modules into the module space, and I think that's the best solution overall
 /// (In terms of parsing and convenience)
-pub fn expand_mod(attrs: ItemAttrs, input: TokenStream2, item: ItemMod) -> TokenStream2 {
-    let parsed_mod = match parse_mod(attrs, item) {
+pub fn expand_mod(attrs: ItemAttributes, input: TokenStream2, item: ItemMod) -> TokenStream2 {
+    let parsed_mod = match parse_mod(attrs, item, false) {
         Ok(parsed_mod) => parsed_mod,
         Err(err) => return err.into_compile_error(),
     };
@@ -44,28 +44,42 @@ pub fn expand_mod(attrs: ItemAttrs, input: TokenStream2, item: ItemMod) -> Token
     for exported in parsed_mod.items {
         exports.push(match exported {
             ModuleItem::Enum(item) => {
-                let name = item.to_token_stream();
+                let name = item.ident.to_token_stream();
+                
+                // Sometimes making wrappers is annoying because of name collisions.
+                // Unprefixed names exist in this case to separate lua functions/types from original
+                // rust functions/types. 
+                //
+                // This function will remove any "lua" or "lua_" prefixes from the string,
+                // and automatically insert them in the table. THIS, however, doesn't rename the type/function's name
+                // - only their table key.
+                let unprefixed_name = remove_lua_prefix(name.to_string());
+
                 quote! {
                     exports.set(
-                        stringify!(#name),
+                        #unprefixed_name,
                         #mod_name::#name::as_table(lua)?
                     )?;
                 }
             }
             ModuleItem::Fn(item) => {
-                let name = item.to_token_stream();
+                let name = item.name.to_token_stream();
+                let unprefixed_name = remove_lua_prefix(name.to_string());
+
                 quote! {
                     exports.set(
-                        stringify!(#name),
+                        #unprefixed_name,
                         lua.create_function(#mod_name::#name)?
                     )?;
                 }
             }
             ModuleItem::Impl(item) => {
-                let name = item.to_token_stream();
+                let name = item.name.to_token_stream();
+                let unprefixed_name = remove_lua_prefix(name.to_string());
+
                 quote! {
                     exports.set(
-                        stringify!(#name),
+                        #unprefixed_name,
                         #mod_name::#name::as_table(lua)?
                     )?;
                 }
@@ -73,7 +87,7 @@ pub fn expand_mod(attrs: ItemAttrs, input: TokenStream2, item: ItemMod) -> Token
         });
     }
 
-    let mod_name_module = str_to_ident(&format!("{mod_name}{MODULE_SUFFIX}"));
+    let mod_name_module = format!("{mod_name}{MODULE_SUFFIX}").to_ident();
 
     quote! {
         #input

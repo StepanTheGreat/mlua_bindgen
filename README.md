@@ -4,7 +4,18 @@
 This project focuses on procedural macros that abstract most of the boilerplate while using the `mlua`
 crate, while also providing a way to automatically generate luau bindings, recognized by luau LSP.
 
-(Currently the bindings don't work)
+*Note: bindings generation works, but is highly unstable, and most often needs corrections.*
+*Feel free to open an issue if you find a bug while using it.*
+
+## Features:
+- Functions
+- Userdata (i.e. structs implemented using `mlua_bindgen`)
+- Type functions (check the examples below for more information)
+- Enums (with integer variants)
+- Modules (a collection of mlua compatible types, all collected to a table)
+- Module inclusion (i.e. an ability to include another mlua module inside a module)
+- "Lua" prefix removal (i.e. naming your function/type `LuaType` will result in `Type` name in modules)
+- Basic bindgen API (check the issues below)
 
 ## A quick example:
 ```rust
@@ -101,11 +112,23 @@ let lua_enum: Table = Colors::as_table(&lua)?;
 ```
 ### Modules
 ```rust
+fn important() {
+
+}
+
 #[mlua_bindgen]
 mod math {
     #[mlua_bindgen]
     pub fn mul(_: &mlua::Lua, val1: f32, val2: f32) -> f32 {
         Ok(val1 * val2)
+    }
+
+    /// Auto prefix removal to avoid name collision. In the lua module, this function instead will be
+    /// exported as "important", while in rust it's name stays the same
+    #[mlua_bindgen]
+    pub fn lua_important(_: &mlua::Lua) {
+        important();
+        Ok(())
     }
 }
 
@@ -138,15 +161,17 @@ of time on documenting everything even better.
 - Add support for different lua flavors provided by mlua (ie `luau`, `lua-jit` and so on). Currently this crate
 uses `luau` internally. (It may not influence anything, but adding these flavors as conditional choice could be
 better)
-- Add a `main` marker for the `mlua_bindgen` macro ( it will look something like `#[mlua_bindgen(main)]`), that will
-specify that the module is main (or that it's an entry-point module)
-- Bindings generation. This is supposed to analyze specified rust files for marked `mlua_bindgen` attributes,
-collect neccessary information (type names, documentation, variable names, variable types, ...) and transform
-into a bindings file that luau-lsp can understand.
-- Add a way to rename `mlua_bindgen` items; could be useful when dealing with API that has name collisions. For example: `#[mlua_bindgen(as = new_name)]`
+- Bindings generation somewhat works, but needs a huge overwrite (extremely bad written).
+- Metamethods via #[meta]
+- Support more types with generics (i.e. `Vec<u8>` -> `{number}` and so on)
 
-## Some issues
+## Some known issues
 1. You can't declare modules inside modules (You can connect them though)
+2. There's no mechanism against type dublication in bindgen (types in Luau are global scope, meaning that using the same type name in different modules will result in 2 different type declarations) 
+3. Module names are required to be unique; the current bindgen implementation simply can't work with modules that
+share the same name, since it doesn't understand the crate module tree.
+
+*If you got a bug while using this crate, feel free to file an issue*
 
 ## Maintenance
 I'm making this crate for a personal project, so I can lose interest in developing/maintaining it at any time.

@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use shared::utils::{parse_attrs, parse_item, syn_error, ItemKind};
+use shared::utils::{parse_attributes, parse_item, syn_error, ItemKind};
 use syn::Item;
 
 mod enums;
@@ -160,7 +160,7 @@ use mods::expand_mod;
 pub fn mlua_bindgen(attr: TokenStream, input: TokenStream) -> TokenStream {
     let input = TokenStream2::from(input);
 
-    let attrs = match parse_attrs(attr.into()) {
+    let attrs = match parse_attributes(attr.into()) {
         Ok(attrs) => attrs,
         Err(err) => return err.to_compile_error().into(),
     };

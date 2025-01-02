@@ -1,8 +1,7 @@
+use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{
-    punctuated::Punctuated,
-    token::{Comma, Paren},
-    Block, FnArg, Ident, ImplItemFn, ItemFn, Pat, ReturnType, Type, TypeTuple, Visibility,
+    punctuated::Punctuated, token::{Brace, Comma, Paren}, Block, FnArg, Ident, ImplItemFn, ItemFn, Pat, ReturnType, Type, TypeParen, TypeTuple, Visibility
 };
 
 use crate::utils::syn_error;
@@ -92,6 +91,24 @@ pub struct ParsedFunc {
     pub block: Block,
     pub args: Vec<FuncArg>,
     pub return_ty: Type,
+}
+
+impl ParsedFunc {
+    /// Create an empty parsed function from name.
+    /// 
+    /// Only use this inside macro, since it only cares about the name
+    pub fn from_ident(name: Ident) -> Self {
+        Self {
+            name,
+            visibility: Visibility::Inherited,
+            block: Block {
+                brace_token: Brace::default(),
+                stmts: Vec::new()
+            },
+            args: Vec::new(),
+            return_ty: Type::Verbatim(TokenStream::new())
+        }
+    }
 }
 
 impl ParsedFunc {

@@ -6,17 +6,62 @@ use mlua_bindgen::{mlua_bindgen, AsTable};
 
 static COUNTER: AtomicU32 = AtomicU32::new(5);
 
+pub struct Secret {
+    value: u32
+}
+
+pub struct LuaSecret(pub Secret);
+
+/// My multiplication
+pub fn mul(v1: f32, v2: f32) -> f32 {
+    v1*v2
+}
+
 #[mlua_bindgen]
 mod inner {
     use macros::mlua_bindgen;
+    use super::mul;
 
+    pub use super::LuaSecret;
+
+    /// I'm a colliding function bridge between rust and lua! 
+    /// 
+    /// Gladly, the [mlua_bindgen] macro for modules will remove any "lua" or "lua_" prefixes from 
+    /// their module items. (This doesn't affect the rust items though, only the keys in the module table)
+    /// 
+    /// For better understanding, the module table would look like this:
+    /// ```
+    /// {
+    ///     "mul": lua_mul,
+    ///     "MyType": LuaMyType
+    /// }
+    /// ``` 
     #[mlua_bindgen]
-    pub fn mul(_: &mlua::Lua, val1: f32, val2: f32) -> f32 {
-        Ok(val1 * val2)
+    pub fn lua_mul(_: &mlua::Lua, val1: f32, val2: f32) -> f32 {
+        Ok(mul(val1, val2))
+    }
+
+    /// The same thing applies here. LuaSecret in the module will be referenced as "Secret"
+    #[mlua_bindgen]
+    impl LuaSecret {
+        #[func]
+        pub fn new(_: &Lua) -> Self {
+            Ok(
+                Self(crate::Secret { value: 44 })
+            )
+        }
+
+        #[method]
+        pub fn value(_: &Lua, this: &Self) -> u32 {
+            Ok(this.0.value)
+        }
     }
 }
 
-#[mlua_bindgen(include = [inner_module])]
+#[mlua_bindgen(
+    include = [inner_module], 
+    main
+)]
 mod math {
     use std::sync::atomic::Ordering;
 
@@ -97,10 +142,15 @@ fn modules() -> mlua::Result<()> {
     let res = lua
         .load(
             "
+        
+        -- Check the secret
+        local secret = math.inner.Secret.new()
+        assert(secret:value() == 44)
+
         -- Add value to the counter
         math.add_to_counter(38)
 
-        -- Using inner modules
+        -- Using inner modules with unprefixed items!
         local vec1_x = math.inner.mul(2, 5)
 
         -- Add 2 vectors together
