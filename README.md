@@ -164,6 +164,8 @@ better)
 - Bindings generation somewhat works, but needs a huge overwrite (extremely bad written).
 - Metamethods via #[meta]
 - Support more types with generics (i.e. `Vec<u8>` -> `{number}` and so on)
+- Module post-initialisation hooks #[post] / #[init] (a custom user function that can be used to manipulate the module table
+after macro generation)
 
 ## Some known issues
 1. You can't declare modules inside modules (You can connect them though)
