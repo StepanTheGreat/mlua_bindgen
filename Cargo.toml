@@ -1,6 +1,6 @@
 [package]
 name = "mlua_bindgen"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 
 [features]
@@ -27,5 +27,5 @@ members = [
 [workspace.dependencies]
 syn = {version="2.0.89", features = ["full"]}
 proc-macro2 = "1.0.91"
-mlua = {version="0.10.1", features=["luau"]}
+mlua = {version="0.10.2", features=["luau"]}
 quote = "1.0.0"
