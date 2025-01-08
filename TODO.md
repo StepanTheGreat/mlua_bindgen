@@ -6,7 +6,6 @@ uses `luau` internally. (It may not influence anything, but adding these flavors
 better)
 - Bindings generation somewhat works, but needs a huge overwrite (extremely bad written).
 - Support more types with generics (i.e. `Vec<u8>` -> `{number}` and so on)
-- Module post-initialisation hooks `#[post_init]` (a custom user function that can be used to manipulate the module table
 after macro generation)
 - #[bindgen_ignore] tag for excluding methods from participating in bindgen (useful when you overwrite default functions like `require`)
 - Simple generics with bindgen. For example: 
