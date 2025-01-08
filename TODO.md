@@ -1,0 +1,23 @@
+# TODO
+- Heavy documentation. The entire library is poorly documented, so I think I should spend a fair amount
+of time on documenting everything even better.
+- Add support for different lua flavors provided by mlua (ie `luau`, `lua-jit` and so on). Currently this crate
+uses `luau` internally. (It may not influence anything, but adding these flavors as conditional choice could be
+better)
+- Bindings generation somewhat works, but needs a huge overwrite (extremely bad written).
+- Metamethods via `#[meta]`
+- Support more types with generics (i.e. `Vec<u8>` -> `{number}` and so on)
+- Module post-initialisation hooks `#[post]` / `#[init]` (a custom user function that can be used to manipulate the module table
+after macro generation)
+- #[bindgen_ignore] tag for excluding methods from participating in bindgen (useful when you overwrite default functions like `require`)
+- Simple generics with bindgen. For example: 
+```rust
+#[mlua_bindgen]
+fn do_something<T: FromLua>(_: &mlua::Lua, val: T) -> T {
+    ...
+}
+```
+⇩ ⇩ ⇩
+```lua
+declare function do_something<T>(val: T): T;
+```
