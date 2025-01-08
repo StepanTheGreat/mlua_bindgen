@@ -23,7 +23,7 @@ pub enum ModuleItem {
     Impl(ParsedImpl),
 }
 
-/// Basically a path, but for modules. It simplifies frefix management and other stuff
+/// Basically a path, but for modules. It simplifies prefix management and other stuff
 pub struct ModulePath {
     name: String,
     pub path: Path,
@@ -79,6 +79,7 @@ pub struct ParsedModule {
     pub visibility: Visibility,
     pub includes: Vec<ModulePath>,
     pub items: Vec<ModuleItem>,
+    pub post_init_func: Option<syn::Path>
 }
 
 /// Try parse an ItemMod into a ParsedModule.
