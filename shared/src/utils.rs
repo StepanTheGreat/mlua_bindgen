@@ -55,9 +55,9 @@ pub enum ItemAttribute {
     /// Tell the bindgen to ignore this element when generating bindings. Useful when replacing standard
     /// functions like `require`
     BindgenIgnore,
-    /// Tells the macro to call a post-init function under provided path before returning a module table. 
+    /// Tells the macro to call a post-init function under provided path before returning a module table.
     /// Useful if you need to manually modify the table.
-    PostInitFunc(syn::Path)
+    PostInitFunc(syn::Path),
 }
 
 impl Parse for ItemAttributes {
@@ -108,7 +108,10 @@ impl Parse for ItemAttributes {
                 if let Expr::Path(path) = expr {
                     ItemAttribute::PostInitFunc(path.path)
                 } else {
-                    return Err(syn_error(expr, "Expected a function path to a post_init function"))
+                    return Err(syn_error(
+                        expr,
+                        "Expected a function path to a post_init function",
+                    ));
                 }
             } else if ident == "main" {
                 //? main

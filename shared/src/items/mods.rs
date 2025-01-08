@@ -79,7 +79,7 @@ pub struct ParsedModule {
     pub visibility: Visibility,
     pub includes: Vec<ModulePath>,
     pub items: Vec<ModuleItem>,
-    pub post_init_func: Option<syn::Path>
+    pub post_init_func: Option<syn::Path>,
 }
 
 /// Try parse an ItemMod into a ParsedModule.
@@ -106,10 +106,10 @@ pub fn parse_mod(
             ItemAttribute::Includes(paths) => included = paths,
             ItemAttribute::IsMain => ismain = true,
             // TODO
-            ItemAttribute::Preserve => {},
+            ItemAttribute::Preserve => {}
             // TODO
-            ItemAttribute::BindgenIgnore => {},
-            ItemAttribute::PostInitFunc(path) => post_init_func = Some(path)
+            ItemAttribute::BindgenIgnore => {}
+            ItemAttribute::PostInitFunc(path) => post_init_func = Some(path),
         }
     }
 
@@ -185,6 +185,6 @@ pub fn parse_mod(
         visibility,
         includes,
         items,
-        post_init_func
+        post_init_func,
     })
 }

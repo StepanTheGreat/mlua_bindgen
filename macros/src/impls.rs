@@ -72,7 +72,7 @@ pub fn expand_impl_func(input: ParsedImplFunc) -> TokenStream2 {
                 stringify!(#name),
                 |#(#req_arg_names), *, (#(#user_arg_names), *)| #block
             );
-        }
+        },
     }
 }
 

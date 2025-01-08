@@ -55,7 +55,7 @@ pub enum FuncKind {
     /// Lua class method
     Func,
     /// Lua table's meta-method
-    Meta
+    Meta,
 }
 
 pub struct FuncArg {
@@ -157,8 +157,8 @@ pub fn parse_func(item: impl CommonFunc, kind: &FuncKind) -> syn::Result<ParsedF
     let mut args: Vec<FuncArg> = Vec::new();
     let req_arg_count = match kind {
         FuncKind::Method | FuncKind::MethodMut => 2, // Lua + Self
-        FuncKind::Meta => 1, // Lua
-        FuncKind::Func => 1, // Lua
+        FuncKind::Meta => 1,                         // Lua
+        FuncKind::Func => 1,                         // Lua
     };
     for (ind, inp_ty) in info.args.into_iter().enumerate() {
         let is_required = ind < req_arg_count;

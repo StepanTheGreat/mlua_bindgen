@@ -31,7 +31,7 @@ impl ResId {
 
     #[meta]
     fn __add(_: &mlua::Lua, a: Self, b: Self) -> Self {
-        Ok(Self {id: a.id+b.id })
+        Ok(Self { id: a.id + b.id })
     }
 
     #[meta]
@@ -51,7 +51,8 @@ fn userdata() -> mlua::Result<()> {
 
     lua.globals().set("ResId", ResId::as_table(&lua)?)?;
 
-    lua.load("
+    lua.load(
+        "
         -- Assert inner value setters and getters
         local res_id = ResId.new(127) 
         assert(res_id.id == 127)
@@ -70,7 +71,9 @@ fn userdata() -> mlua::Result<()> {
         -- Compare two userdata together
         assert(a == c)
         assert(a.id == c.id)
-    ").exec()?;
+    ",
+    )
+    .exec()?;
 
     Ok(())
 }

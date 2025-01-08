@@ -86,7 +86,7 @@ pub enum LuaType {
     /// defined type (i.e. through [`mlua_bindgen`] macro)
     Custom(String),
     /// Any type in lua. Only works if you use [`Value`] in your arguments
-    Any
+    Any,
 }
 
 impl LuaType {
@@ -193,8 +193,8 @@ impl std::fmt::Display for LuaType {
 
                         format!("({result})")
                     }
-                },
-                LuaType::Any => "any".to_owned()
+                }
+                LuaType::Any => "any".to_owned(),
             }
         )
     }
@@ -384,7 +384,7 @@ pub struct LuaStruct {
     pub fields: Vec<LuaField>,
     pub funcs: Vec<LuaFunc>,
     pub methods: Vec<LuaFunc>,
-    pub meta_funcs: Vec<LuaFunc>
+    pub meta_funcs: Vec<LuaFunc>,
 }
 
 impl LuaStruct {
@@ -433,7 +433,7 @@ impl LuaStruct {
             funcs,
             fields,
             methods,
-            meta_funcs
+            meta_funcs,
         })
     }
 }

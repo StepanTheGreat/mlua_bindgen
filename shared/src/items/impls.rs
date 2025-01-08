@@ -41,7 +41,7 @@ pub struct ParsedImpl {
     pub fields: Vec<ParsedField>,
     pub funcs: Vec<ParsedImplFunc>,
     pub methods: Vec<ParsedImplFunc>,
-    pub meta_funcs: Vec<ParsedImplFunc>
+    pub meta_funcs: Vec<ParsedImplFunc>,
 }
 
 impl ParsedImpl {
@@ -52,7 +52,7 @@ impl ParsedImpl {
             fields: Vec::new(),
             funcs: Vec::new(),
             methods: Vec::new(),
-            meta_funcs: Vec::new()
+            meta_funcs: Vec::new(),
         }
     }
 }
@@ -90,7 +90,7 @@ pub fn parse_impl(input: ItemImpl) -> syn::Result<ParsedImpl> {
         fields,
         methods,
         funcs,
-        meta_funcs
+        meta_funcs,
     })
 }
 

@@ -91,8 +91,8 @@ pub fn expand_mod(attrs: ItemAttributes, input: TokenStream2, item: ItemMod) -> 
         Some(path) => {
             // We simply call our post_init function with lua and our exports table reference.
             quote! { #path(lua, &exports)?; }
-        },
-        None => TokenStream2::new()
+        }
+        None => TokenStream2::new(),
     };
 
     let mod_name_module = format!("{mod_name}{MODULE_SUFFIX}").to_ident();

@@ -31,7 +31,8 @@ fn post_init() -> mlua::Result<()> {
     let lua = mlua::Lua::new();
     lua.globals().set("module", module_module(&lua)?)?;
 
-    lua.load("
+    lua.load(
+        "
         
         -- Call our module function, of course
         assert(module.my_function() == 5)
@@ -41,7 +42,9 @@ fn post_init() -> mlua::Result<()> {
 
         -- We set it through our post_init function
         assert(module.my_secret_key == 256)
-    ").exec()?;
+    ",
+    )
+    .exec()?;
 
     Ok(())
 }
