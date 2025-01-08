@@ -58,6 +58,11 @@ impl ParsedFile {
                     main_mod = Some(lua_mod);
                 }
             } else {
+                if mod_map.contains_key(&lua_mod.name) {
+                    return Err(Error::Unimplemented { 
+                        message: format!("Found a colliding module name: \"{}\". mlua_bindgen currently can only work with unique module names, as it doesn't understand the module tree.", &lua_mod.name)
+                    })
+                } 
                 mod_map.insert(lua_mod.name.clone(), lua_mod);
             }
         }
