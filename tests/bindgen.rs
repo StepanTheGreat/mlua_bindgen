@@ -6,7 +6,7 @@ use mlua_bindgen::bindgen::BindgenTransformer;
 
 #[cfg(feature = "bindgen")]
 #[test]
-fn main() -> Result<(), mlua_bindgen::error::Error> {
+fn bindgen() -> Result<(), mlua_bindgen::error::Error> {
     let lua_src = BindgenTransformer::new()
         .add_input_dir("./tests/bindgen")
         .parse()?

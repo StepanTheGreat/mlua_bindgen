@@ -98,14 +98,17 @@ mod main {
             Ok(Self::new(x, y))
         }
 
-        #[method]
-        fn add(_: _, this: &Self, with: Self) -> Self {
-            let res = Self {
+        #[meta]
+        fn __add(_: _, this: Self, with: Self) -> Self {
+            Ok(Self {
                 x: this.x + with.x,
-                y: this.y + with.y,
-            };
+                y: this.x + with.x
+            })
+        }
 
-            Ok(res)
+        #[meta]
+        fn __tostring(_: _, this: Self) -> String {
+            Ok(format!("<Vector x={}, y={}>", this.x, this.y))
         }
 
         #[method]

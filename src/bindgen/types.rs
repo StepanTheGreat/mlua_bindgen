@@ -50,12 +50,14 @@ fn type_map<'a>() -> TypeMap<'a> {
         LuaType::Thread => (Thread),
         LuaType::Userdata => (AnyUserData, LightUserData, UserDataRef, UserDataRefMut),
         LuaType::Function => (Function),
-        LuaType::Void => (())
+        LuaType::Void => (()),
+        LuaType::Any => (Value)
     }
 }
 
 /// Lua type enum. Doesn't neccessarily represent lua types, though mostly it does. It also contains mlua
 /// specific values for edge cases.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum LuaType {
     Integer,
@@ -83,6 +85,8 @@ pub enum LuaType {
     /// These are passed directly as string, as they're simply a reference to a
     /// defined type (i.e. through [`mlua_bindgen`] macro)
     Custom(String),
+    /// Any type in lua. Only works if you use [`Value`] in your arguments
+    Any
 }
 
 impl LuaType {
@@ -189,7 +193,8 @@ impl std::fmt::Display for LuaType {
 
                         format!("({result})")
                     }
-                }
+                },
+                LuaType::Any => "any".to_owned()
             }
         )
     }
@@ -379,6 +384,7 @@ pub struct LuaStruct {
     pub fields: Vec<LuaField>,
     pub funcs: Vec<LuaFunc>,
     pub methods: Vec<LuaFunc>,
+    pub meta_funcs: Vec<LuaFunc>
 }
 
 impl LuaStruct {
@@ -390,6 +396,7 @@ impl LuaStruct {
         let mut funcs = Vec::new();
         let mut fields = Vec::new();
         let mut methods = Vec::new();
+        let mut meta_funcs = Vec::new();
 
         for func in parsed.funcs {
             let lfunc = LuaFunc::from_parsed(func.func)?;
@@ -399,6 +406,13 @@ impl LuaStruct {
         for method in parsed.methods {
             let lmethod = LuaFunc::from_parsed(method.func)?;
             methods.push(lmethod);
+        }
+
+        // We're pushing meta functions to the same vector, since they're by type the same as methods,
+        // the sole difference being their arguments.
+        for meta_func in parsed.meta_funcs {
+            let lmeta_func = LuaFunc::from_parsed(meta_func.func)?;
+            meta_funcs.push(lmeta_func);
         }
 
         for field in parsed.fields {
@@ -419,6 +433,7 @@ impl LuaStruct {
             funcs,
             fields,
             methods,
+            meta_funcs
         })
     }
 }

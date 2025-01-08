@@ -149,9 +149,15 @@ impl LuaExpand for LuaStruct {
             writeln!(&mut global_ty, "    {fname}: {fty},").unwrap();
         }
 
-        for func in self.methods.iter() {
-            let fname = func.name.clone();
-            let fty = func.as_ty_impl(name, true);
+        for method in self.methods.iter() {
+            let fname = method.name.clone();
+            let fty = method.as_ty_impl(name, true);
+            writeln!(&mut global_ty, "    {fname}: {fty},").unwrap();
+        }
+
+        for meta_func in self.meta_funcs.iter() {
+            let fname = meta_func.name.clone();
+            let fty = meta_func.as_ty_impl(name, false);
             writeln!(&mut global_ty, "    {fname}: {fty},").unwrap();
         }
 
