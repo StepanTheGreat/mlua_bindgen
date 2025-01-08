@@ -103,7 +103,10 @@ pub fn parse_mod(
         match attr {
             ItemAttribute::Includes(paths) => included = paths,
             ItemAttribute::IsMain => ismain = true,
-            ItemAttribute::Preserve => {}
+            // TODO
+            ItemAttribute::Preserve => {},
+            // TODO
+            ItemAttribute::BindgenIgnore => {}
         }
     }
 
@@ -134,7 +137,6 @@ pub fn parse_mod(
                     if !contains_attr(&mod_fn.attrs, MLUA_BINDGEN_ATTR) {
                         continue;
                     }
-
                     ModuleItem::Fn(if parse_items {
                         parse_func(mod_fn, &FuncKind::Func)?
                     } else {

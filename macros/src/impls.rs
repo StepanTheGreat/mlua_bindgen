@@ -67,6 +67,12 @@ pub fn expand_impl_func(input: ParsedImplFunc) -> TokenStream2 {
                 |#(#req_arg_names), *, (#(#user_arg_names), *)| #block
             );
         },
+        FuncKind::Meta => quote! {
+            methods.add_meta_function::<_, (#(#user_arg_types),*), #return_ty>(
+                stringify!(#name),
+                |#(#req_arg_names), *, (#(#user_arg_names), *)| #block
+            );
+        }
     }
 }
 
@@ -93,6 +99,12 @@ pub fn expand_impl(input: ItemImpl) -> TokenStream2 {
         .map(expand_impl_func)
         .collect();
 
+    let meta_funcs: Vec<TokenStream2> = parsed_impl
+        .meta_funcs
+        .into_iter()
+        .map(expand_impl_func)
+        .collect();
+
     quote! {
         impl ::mlua::UserData for #impl_name {
             fn add_fields<F: ::mlua::UserDataFields<Self>>(fields: &mut F) {
@@ -101,6 +113,7 @@ pub fn expand_impl(input: ItemImpl) -> TokenStream2 {
 
             fn add_methods<M: ::mlua::UserDataMethods<Self>>(methods: &mut M) {
                 #(#methods)*
+                #(#meta_funcs)*
             }
         }
 

@@ -52,6 +52,9 @@ pub enum ItemAttribute {
     IsMain,
     /// An attribute that tells to keep the original name, without removing its Lua prefix.
     Preserve,
+    /// Tell the bindgen to ignore this element when generating bindings. Useful when replacing standard
+    /// functions like `require`
+    BindgenIgnore,
 }
 
 impl Parse for ItemAttributes {
@@ -92,8 +95,13 @@ impl Parse for ItemAttributes {
             } else if ident == "main" {
                 ItemAttribute::IsMain
             } else if ident == "preserve" {
-                unimplemented!("The preserve keyword is unimplemented for now");
                 // ItemAttribute::Preserve
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    "The preserve keyword is currently not supported",
+                ));
+            } else if ident == "bindgen_ignore" {
+                ItemAttribute::BindgenIgnore
             } else {
                 return Err(syn::Error::new_spanned(
                     ident,

@@ -41,6 +41,7 @@ pub struct ParsedImpl {
     pub fields: Vec<ParsedField>,
     pub funcs: Vec<ParsedImplFunc>,
     pub methods: Vec<ParsedImplFunc>,
+    pub meta_funcs: Vec<ParsedImplFunc>
 }
 
 impl ParsedImpl {
@@ -51,6 +52,7 @@ impl ParsedImpl {
             fields: Vec::new(),
             funcs: Vec::new(),
             methods: Vec::new(),
+            meta_funcs: Vec::new()
         }
     }
 }
@@ -61,6 +63,7 @@ pub fn parse_impl(input: ItemImpl) -> syn::Result<ParsedImpl> {
     let mut fields: Vec<ParsedField> = Vec::new();
     let mut methods: Vec<ParsedImplFunc> = Vec::new();
     let mut funcs: Vec<ParsedImplFunc> = Vec::new();
+    let mut meta_funcs: Vec<ParsedImplFunc> = Vec::new();
 
     for impl_item in input.items {
         if let ImplItem::Fn(impl_fn) = impl_item {
@@ -70,6 +73,8 @@ pub fn parse_impl(input: ItemImpl) -> syn::Result<ParsedImpl> {
                 methods.push(parse_impl_func(impl_fn, FuncKind::MethodMut)?);
             } else if contains_attr(&impl_fn.attrs, "func") {
                 funcs.push(parse_impl_func(impl_fn, FuncKind::Func)?);
+            } else if contains_attr(&impl_fn.attrs, "meta") {
+                meta_funcs.push(parse_impl_func(impl_fn, FuncKind::Meta)?);
             } else if contains_attr(&impl_fn.attrs, "get") {
                 fields.push(parse_field(impl_fn, FieldKind::Getter)?);
             } else if contains_attr(&impl_fn.attrs, "set") {
@@ -85,6 +90,7 @@ pub fn parse_impl(input: ItemImpl) -> syn::Result<ParsedImpl> {
         fields,
         methods,
         funcs,
+        meta_funcs
     })
 }
 

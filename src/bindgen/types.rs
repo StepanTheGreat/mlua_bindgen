@@ -10,8 +10,7 @@ use shared::{
 };
 use std::{
     collections::HashMap,
-    fmt::{write, Debug, Write},
-    path::Display,
+    fmt::{Debug, Write},
     sync::LazyLock,
 };
 use syn::{GenericArgument, Pat, PathArguments, Type};
