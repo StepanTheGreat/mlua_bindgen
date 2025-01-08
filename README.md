@@ -159,6 +159,7 @@ lua.load('
 | Crate version | `mlua` version |
 | ----          | ----           |
 | 0.2           | 0.10.1         |
+| 0.3           | 0.10.2         |
 
 ## Some known issues
 1. You can't declare modules inside modules (You can connect them though)
