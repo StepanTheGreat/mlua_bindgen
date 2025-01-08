@@ -87,6 +87,14 @@ pub fn expand_mod(attrs: ItemAttributes, input: TokenStream2, item: ItemMod) -> 
         });
     }
 
+    let post_init_func = match parsed_mod.post_init_func {
+        Some(path) => {
+            // We simply call our post_init function with lua and our exports table reference.
+            quote! { #path(lua, &exports)?; }
+        },
+        None => TokenStream2::new()
+    };
+
     let mod_name_module = format!("{mod_name}{MODULE_SUFFIX}").to_ident();
 
     quote! {
@@ -95,6 +103,7 @@ pub fn expand_mod(attrs: ItemAttributes, input: TokenStream2, item: ItemMod) -> 
         #vis_param fn #mod_name_module(lua: &::mlua::Lua) -> ::mlua::Result<::mlua::Table> {
             let exports = lua.create_table()?;
             #(#exports)*
+            #post_init_func
             Ok(exports)
         }
     }

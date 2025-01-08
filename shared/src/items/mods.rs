@@ -96,6 +96,7 @@ pub fn parse_mod(
     let visibility = item.vis;
     let mut items: Vec<ModuleItem> = Vec::new();
     let mut includes: Vec<ModulePath> = Vec::new();
+    let mut post_init_func = None;
 
     let mut included = Vec::new();
     // Iterate over all attributes in the list.
@@ -107,7 +108,8 @@ pub fn parse_mod(
             // TODO
             ItemAttribute::Preserve => {},
             // TODO
-            ItemAttribute::BindgenIgnore => {}
+            ItemAttribute::BindgenIgnore => {},
+            ItemAttribute::PostInitFunc(path) => post_init_func = Some(path)
         }
     }
 
@@ -183,5 +185,6 @@ pub fn parse_mod(
         visibility,
         includes,
         items,
+        post_init_func
     })
 }

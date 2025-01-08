@@ -55,6 +55,9 @@ pub enum ItemAttribute {
     /// Tell the bindgen to ignore this element when generating bindings. Useful when replacing standard
     /// functions like `require`
     BindgenIgnore,
+    /// Tells the macro to call a post-init function under provided path before returning a module table. 
+    /// Useful if you need to manually modify the table.
+    PostInitFunc(syn::Path)
 }
 
 impl Parse for ItemAttributes {
@@ -71,6 +74,8 @@ impl Parse for ItemAttributes {
             let ident = input.parse::<Ident>()?;
 
             let new_attr = if ident == "include" {
+                //? include = [path::my_module, local_module]
+
                 // Parse the `=` sign
                 input.parse::<Token![=]>()?;
 
@@ -92,16 +97,33 @@ impl Parse for ItemAttributes {
                     .collect();
 
                 ItemAttribute::Includes(included)
+            } else if ident == "post_init" {
+                //? post_init = my::path::to::func
+
+                // Parse the `=` sign
+                input.parse::<Token![=]>()?;
+
+                let expr = input.parse::<Expr>()?;
+
+                if let Expr::Path(path) = expr {
+                    ItemAttribute::PostInitFunc(path.path)
+                } else {
+                    return Err(syn_error(expr, "Expected a function path to a post_init function"))
+                }
             } else if ident == "main" {
+                //? main
+
                 ItemAttribute::IsMain
             } else if ident == "preserve" {
-                // ItemAttribute::Preserve
                 return Err(syn::Error::new_spanned(
                     ident,
-                    "The preserve keyword is currently not supported",
+                    "The `preserve` attribute is currently not supported",
                 ));
             } else if ident == "bindgen_ignore" {
-                ItemAttribute::BindgenIgnore
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    "The `bindgen_ignore` attribute is currently not supported",
+                ));
             } else {
                 return Err(syn::Error::new_spanned(
                     ident,
