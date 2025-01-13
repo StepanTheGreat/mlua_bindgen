@@ -156,7 +156,13 @@ fn parse_file(file: syn::File) -> syn::Result<ParsedFile> {
     for item in file.items {
         if let Item::Mod(mod_item) = item {
             if let Some(attrs) = get_bindgen_attrs(&mod_item.attrs) {
-                mods.push(parse_mod(attrs, mod_item, true)?);
+                let mut parsed_mod = parse_mod(attrs, mod_item, true)?;
+                // Of course we need to check if the bindgen_ignore marker is present, and if so - don't add the
+                // module.
+                if !parsed_mod.bindgen_ignore {
+                    parsed_mod.clean_ignored();
+                    mods.push(parsed_mod);
+                }
             }
         }
     }

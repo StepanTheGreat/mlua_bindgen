@@ -1,6 +1,6 @@
 use syn::{ImplItem, ImplItemFn, ItemImpl, Type};
 
-use crate::utils::{contains_attr, syn_error};
+use crate::utils::{contains_attr, syn_error, MLUA_IGNORE_BINDGEN_ATTR};
 
 use super::funcs::{parse_func, FuncKind, ParsedFunc};
 
@@ -38,6 +38,7 @@ pub struct ParsedImplFunc {
 pub struct ParsedImpl {
     /// Impl blocks don't contain Ident tokens, but rather type
     pub name: Type,
+    pub bindgen_ignore: bool,
     pub fields: Vec<ParsedField>,
     pub funcs: Vec<ParsedImplFunc>,
     pub methods: Vec<ParsedImplFunc>,
@@ -49,6 +50,7 @@ impl ParsedImpl {
     pub fn from_ty(name: Type) -> Self {
         Self {
             name,
+            bindgen_ignore: false,
             fields: Vec::new(),
             funcs: Vec::new(),
             methods: Vec::new(),
@@ -60,6 +62,7 @@ impl ParsedImpl {
 /// Parse an impl block and its inner functions into a [`ParsedImpl`]
 pub fn parse_impl(input: ItemImpl) -> syn::Result<ParsedImpl> {
     let name = input.self_ty;
+    let bindgen_ignore = contains_attr(&input.attrs, MLUA_IGNORE_BINDGEN_ATTR);
     let mut fields: Vec<ParsedField> = Vec::new();
     let mut methods: Vec<ParsedImplFunc> = Vec::new();
     let mut funcs: Vec<ParsedImplFunc> = Vec::new();
@@ -87,6 +90,7 @@ pub fn parse_impl(input: ItemImpl) -> syn::Result<ParsedImpl> {
 
     Ok(ParsedImpl {
         name: *name,
+        bindgen_ignore,
         fields,
         methods,
         funcs,

@@ -6,10 +6,11 @@ use syn::{
     Block, FnArg, Ident, ImplItemFn, ItemFn, Pat, ReturnType, Type, TypeTuple, Visibility,
 };
 
-use crate::utils::syn_error;
+use crate::utils::{contains_attr, syn_error, MLUA_IGNORE_BINDGEN_ATTR};
 
 pub struct CommonFuncInfo {
     pub ident: Ident,
+    pub bindgen_ignore: bool,
     pub visibility: Visibility,
     pub block: Block,
     pub ret_ty: ReturnType,
@@ -26,6 +27,7 @@ impl CommonFunc for ImplItemFn {
     fn get_info(self) -> CommonFuncInfo {
         CommonFuncInfo {
             ident: self.sig.ident,
+            bindgen_ignore: contains_attr(&self.attrs, MLUA_IGNORE_BINDGEN_ATTR),
             visibility: self.vis,
             block: self.block,
             ret_ty: self.sig.output,
@@ -38,6 +40,7 @@ impl CommonFunc for ItemFn {
     fn get_info(self) -> CommonFuncInfo {
         CommonFuncInfo {
             ident: self.sig.ident,
+            bindgen_ignore: contains_attr(&self.attrs, MLUA_IGNORE_BINDGEN_ATTR),
             visibility: self.vis,
             block: *self.block,
             ret_ty: self.sig.output,
@@ -91,6 +94,7 @@ impl ToTokens for FuncArg {
 /// user argument names, and so on.
 pub struct ParsedFunc {
     pub name: Ident,
+    pub bindgen_ignore: bool,
     pub visibility: Visibility,
     pub block: Block,
     pub args: Vec<FuncArg>,
@@ -104,6 +108,7 @@ impl ParsedFunc {
     pub fn from_ident(name: Ident) -> Self {
         Self {
             name,
+            bindgen_ignore: false,
             visibility: Visibility::Inherited,
             block: Block {
                 brace_token: Brace::default(),
@@ -130,6 +135,7 @@ impl ParsedFunc {
 pub fn parse_func(item: impl CommonFunc, kind: &FuncKind) -> syn::Result<ParsedFunc> {
     let info = item.get_info();
     let name = info.ident;
+    let bindgen_ignore = info.bindgen_ignore;
     let block = info.block;
     let visibility = info.visibility;
 
@@ -193,6 +199,7 @@ pub fn parse_func(item: impl CommonFunc, kind: &FuncKind) -> syn::Result<ParsedF
 
     Ok(ParsedFunc {
         name,
+        bindgen_ignore,
         visibility,
         block,
         return_ty,

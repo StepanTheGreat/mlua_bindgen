@@ -154,6 +154,13 @@ mod main {
     pub fn do_something_better(_: &mlua::Lua, what: u32, other: String) -> [String; 3] {
         Ok(["".to_owned(), "".to_owned(), "".to_owned()])
     }
+
+    /// This function should not be in the generated bindings
+    #[mlua_bindgen_ignore]
+    #[mlua_bindgen]
+    pub fn require(_: &mlua::Lua, module: String) -> Table {
+        Ok(())
+    }
 }
 
 fn main() {

@@ -1,12 +1,13 @@
 use syn::{Expr, Ident, ItemEnum, Lit};
 
-use crate::utils::syn_error;
+use crate::utils::{contains_attr, syn_error, MLUA_IGNORE_BINDGEN_ATTR};
 
 pub type LuaVariantType = usize;
 
 /// Contains general enum information, that is important both for macros and bindgen parsers
 pub struct ParsedEnum {
     pub ident: Ident,
+    pub bindgen_ignore: bool,
     pub variants: Vec<(Ident, LuaVariantType)>,
 }
 
@@ -15,6 +16,7 @@ impl ParsedEnum {
     pub fn from_ident(ident: Ident) -> Self {
         Self {
             ident,
+            bindgen_ignore: false,
             variants: Vec::new(),
         }
     }
@@ -24,6 +26,7 @@ impl ParsedEnum {
 pub fn parse_enum(item: ItemEnum) -> syn::Result<ParsedEnum> {
     let ident = item.ident;
     let mut variants: Vec<(Ident, LuaVariantType)> = Vec::new();
+    let bindgen_ignore = contains_attr(&item.attrs, MLUA_IGNORE_BINDGEN_ATTR);
 
     let mut value: LuaVariantType = 0;
     for variant in item.variants.into_iter() {
@@ -60,5 +63,5 @@ pub fn parse_enum(item: ItemEnum) -> syn::Result<ParsedEnum> {
         value += 1;
     }
 
-    Ok(ParsedEnum { ident, variants })
+    Ok(ParsedEnum { ident, bindgen_ignore, variants })
 }

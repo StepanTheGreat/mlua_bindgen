@@ -3,8 +3,7 @@ use std::collections::HashSet;
 use syn::{Ident, Item, ItemMod, Path, Visibility};
 
 use crate::utils::{
-    contains_attr, syn_error, ItemAttribute, ItemAttributes, LastPathIdent, ToIdent,
-    MLUA_BINDGEN_ATTR,
+    contains_attr, syn_error, ItemAttribute, ItemAttributes, LastPathIdent, ToIdent, MLUA_BINDGEN_ATTR, MLUA_IGNORE_BINDGEN_ATTR
 };
 
 use super::{
@@ -76,10 +75,25 @@ impl ModulePath {
 pub struct ParsedModule {
     pub ident: Ident,
     pub ismain: bool,
+    pub bindgen_ignore: bool,
     pub visibility: Visibility,
     pub includes: Vec<ModulePath>,
     pub items: Vec<ModuleItem>,
     pub post_init_func: Option<syn::Path>,
+}
+
+impl ParsedModule {
+    /// Remove all bindgen_ignore items from this module
+    pub fn clean_ignored(&mut self) {
+        self.items.retain(|mod_item| {
+            match mod_item {
+                ModuleItem::Enum(mod_enum) => !mod_enum.bindgen_ignore,
+                ModuleItem::Fn(mod_fn) => !mod_fn.bindgen_ignore,
+                ModuleItem::Impl(mod_impl) => !mod_impl.bindgen_ignore
+            }
+            // TODO: Clean the impl blocks as well, as they can contain bindgen_ignore items
+        });
+    }
 }
 
 /// Try parse an ItemMod into a ParsedModule.
@@ -97,6 +111,7 @@ pub fn parse_mod(
     let mut items: Vec<ModuleItem> = Vec::new();
     let mut includes: Vec<ModulePath> = Vec::new();
     let mut post_init_func = None;
+    let bindgen_ignore = contains_attr(&item.attrs, MLUA_IGNORE_BINDGEN_ATTR);
 
     let mut included = Vec::new();
     // Iterate over all attributes in the list.
@@ -181,6 +196,7 @@ pub fn parse_mod(
 
     Ok(ParsedModule {
         ismain,
+        bindgen_ignore,
         ident,
         visibility,
         includes,

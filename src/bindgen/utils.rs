@@ -13,12 +13,6 @@ pub fn get_attribute_args(attr: &Attribute) -> Option<TokenStream2> {
     }
 }
 
-/// This is the same as [`contains_attr`], but will actually return a reference to the attribute
-/// if it can find it.
-pub fn find_attr<'a>(attrs: &'a [syn::Attribute], needed: &str) -> Option<&'a Attribute> {
-    attrs.iter().find(|&attr| attr.path().is_ident(needed))
-}
-
 /// Will transform a string and return a new one, with a specific amount of tabs.
 ///
 /// It's supposed to be used with integers bigger than 0
@@ -28,6 +22,12 @@ pub fn add_tabs(s: String, amount: usize) -> String {
         let _ = writeln!(s, "{tab}{line}");
         s
     })
+}
+
+/// This is the same as [`contains_attr`], but will actually return a reference to the attribute
+/// if it can find it.
+pub fn find_attr<'a>(attrs: &'a [Attribute], needed: &str) -> Option<&'a Attribute> {
+    attrs.iter().find(|&attr| attr.path().is_ident(needed))
 }
 
 #[cfg(test)]

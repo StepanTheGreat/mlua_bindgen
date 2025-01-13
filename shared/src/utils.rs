@@ -2,12 +2,14 @@ use std::fmt::Display;
 
 use proc_macro2::TokenStream as TokenStream2;
 use syn::{
-    parse::Parse, parse2, spanned::Spanned, token::Comma, Expr, ExprArray, Ident, Item, ItemEnum,
-    ItemFn, ItemImpl, ItemMod, Token,
+    parse::Parse, parse2, spanned::Spanned, token::Comma, Attribute, Expr, ExprArray, Ident, Item, ItemEnum, ItemFn, ItemImpl, ItemMod, Token
 };
 
 pub const MLUA_BINDGEN_ATTR: &str = "mlua_bindgen";
-pub const MLUA_BINDGEN_IGNORE_ATTR: &str = "mlua_bindgen_ignore";
+/// The reason it's not `MLUA_BINDGEN_IGNORE_ATTR`, is that my intellisense constantly recommends my the
+/// default `MLUA_BINDGEN_ATTR`, so I renamed it to emphasize the `IGNORE` part at the start, 
+/// thus avoiding mistakes.
+pub const MLUA_IGNORE_BINDGEN_ATTR: &str = "mlua_bindgen_ignore";
 
 /// A parsed Item kind. Unsupported items are put in as they are, to allow error checking
 pub enum ItemKind {
