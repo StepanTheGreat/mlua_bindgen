@@ -112,13 +112,16 @@ impl LuaType {
                 let ident = ty_path.path.last_ident();
                 // For Options we have a slightly different procedure.
                 if ident == "Option" {
-                    let lua_ty = Self::from_syn_ty(parse_option_ty(ty_path)?)?;
+                    let inner_ty = Self::from_syn_ty(parse_inner_ty(ty_path)?)?;
 
-                    if let Self::Optional(_) = lua_ty {
+                    if let Self::Optional(_) = inner_ty {
                         return Err(Error::ParseErr { message: "Lua optional types can't be recursive (i.e. contain an Option inside an Option)".to_owned() });
                     }
 
-                    Self::Optional(Box::new(lua_ty))
+                    Self::Optional(Box::new(inner_ty))
+                } else if ident == "Vec" {
+                    let inner_ty = Self::from_syn_ty(parse_inner_ty(ty_path)?)?;
+                    Self::Array(Box::new(inner_ty))
                 } else {
                     Self::from_syn_ident(ident)
                 }
@@ -204,21 +207,21 @@ impl std::fmt::Display for LuaType {
 ///
 /// This function can fail if the generic arguments are incorrect or the inner type is an option itself
 /// (this crate will try to avoid basic recursive behaviour)
-fn parse_option_ty(input: &syn::TypePath) -> Result<&Type, Error> {
+fn parse_inner_ty(input: &syn::TypePath) -> Result<&Type, Error> {
     let segment = input.path.segments.last().unwrap();
     if let PathArguments::AngleBracketed(args) = &segment.arguments {
         let inner_ty = match args.args[0] {
             GenericArgument::Type(ref ty) => ty,
             _ => {
                 return Err(Error::Unimplemented {
-                    message: "A lua optional type has incorrect generic arguments".to_owned(),
+                    message: "mlua_bindgen only supports types with generic type arguments".to_owned(),
                 })
             }
         };
         Ok(inner_ty)
     } else {
         Err(Error::ParseErr {
-            message: "Failed to parse lua optional type's brackets. Expected angular brackets"
+            message: "Failed to parse lua type's brackets. Expected angular brackets"
                 .to_owned(),
         })
     }

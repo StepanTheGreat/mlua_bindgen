@@ -149,10 +149,16 @@ mod main {
         Var101,
     }
 
-    /// Adds something to a global counter
+    /// Should return a table of strings
     #[mlua_bindgen]
     pub fn do_something_better(_: &mlua::Lua, what: u32, other: String) -> [String; 3] {
         Ok(["".to_owned(), "".to_owned(), "".to_owned()])
+    }
+
+    /// The same
+    #[mlua_bindgen]
+    pub fn do_something_better_vec(_: &mlua::Lua, what: u32, other: String) -> Vec<String> {
+        Ok(vec!["".to_owned(), "".to_owned(), "".to_owned()])
     }
 
     /// This function should not be in the generated bindings
