@@ -206,7 +206,6 @@ pub fn mlua_bindgen(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// }
 /// 
 /// ```
-// #[cfg(feature="bindgen")]
 #[proc_macro_attribute]
 pub fn mlua_bindgen_ignore(_attr: TokenStream, input: TokenStream) -> TokenStream {
     input
