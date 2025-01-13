@@ -7,6 +7,7 @@ use syn::{
 };
 
 pub const MLUA_BINDGEN_ATTR: &str = "mlua_bindgen";
+pub const MLUA_BINDGEN_IGNORE_ATTR: &str = "mlua_bindgen_ignore";
 
 /// A parsed Item kind. Unsupported items are put in as they are, to allow error checking
 pub enum ItemKind {
