@@ -4,6 +4,27 @@ use imported::imported_module;
 
 static COUNTER: AtomicU32 = AtomicU32::new(5);
 
+/// This module even though is not ignored, is a child of an ignored module, 
+/// so will be ignored as well
+#[mlua_bindgen]
+mod ignored_inner {
+    #[mlua_bindgen]
+    pub fn even_sneakier(_: &mlua::Lua) {
+        Ok(())
+    }
+}
+
+/// This module and its items should be ignored
+#[mlua_bindgen_ignore]
+#[mlua_bindgen(include=[ignored_inner_module])]
+mod ignored {
+
+    #[mlua_bindgen]
+    pub fn ignored_function(_: &mlua::Lua) {
+        Ok(())
+    }
+}
+
 #[mlua_bindgen]
 mod super_inner {
     use macros::mlua_bindgen;
@@ -68,7 +89,12 @@ mod inner {
     }
 }
 
-#[mlua_bindgen(main, include = [inner_module, imported_module])]
+#[mlua_bindgen(main, include = [
+    inner_module, 
+    imported_module, 
+    ignored_module
+]
+)]
 mod main {
     use std::sync::atomic::Ordering;
 
