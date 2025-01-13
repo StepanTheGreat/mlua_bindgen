@@ -180,3 +180,34 @@ pub fn mlua_bindgen(attr: TokenStream, input: TokenStream) -> TokenStream {
         }
     }.into()
 }
+
+/// A marker attribute that tells the bindgen to ignore the provided item when generating bindgings.
+/// 
+/// For example:
+/// ```
+/// #[mlua_bindgen(main)]
+/// pub env {
+///     
+///     /// An item that we want to generate our bindings for
+///     #[mlua_bindgen]
+///     pub fn useful_func(_: &mlua::Lua, arg: u32) -> u32 {
+///         ...
+///     }
+///     
+///     /// An item that we would like to ignore. (IDEs provide intellisense for require 
+///     /// functions by default, so we don't want to overwrite it to make our 
+///     /// developer experience worse)
+///     #[mlua_bindgen]
+///     #[mlua_bindgen_ignore]
+///     pub fn require(lua: &mlua::Lua, module: String) -> Table {
+///         ...
+///     }
+/// 
+/// }
+/// 
+/// ```
+// #[cfg(feature="bindgen")]
+#[proc_macro_attribute]
+pub fn mlua_bindgen_ignore(_attr: TokenStream, input: TokenStream) -> TokenStream {
+    input
+}
