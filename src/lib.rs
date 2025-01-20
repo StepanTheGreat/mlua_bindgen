@@ -19,3 +19,11 @@ pub trait AsTable {
     /// Converts this type to a lua table.
     fn as_table(lua: &mlua::Lua) -> mlua::Result<mlua::Table>;
 }
+
+/// A trait specifically used for mlua_bindgen enums to facilitate convertation from lua integers
+pub trait FromUsize: Sized {
+    /// Try convert a usize value into an mlua_bindgen enum
+    /// 
+    /// If the value isn't present in the enum - returns [None]
+    fn from_usize(value: usize) -> Option<Self>;
+}

@@ -18,35 +18,15 @@ pub fn expand_enum(input: TokenStream2, item: ItemEnum) -> TokenStream2 {
     };
 
     let name = parsed_enum.ident.to_token_stream();
-    // let variants: Vec<TokenStream2> = parsed_enum
-    //     .variants
-    //     .iter()
-    //     .map(|(ident, value)| {
-    //         let vname = ident.to_string();
-    //         quote! { table.set(#vname, #value)?; }
-    //     })
-    //     .collect();
-
-    // /// Variants that instead map 
-    // let match_variants: Vec<TokenStream2> = parsed_enum
-    //     .variants
-    //     .iter()
-    //     .map(|(ident, value)| {
-    //         let vname = ident.to_string();
-    //         quote! { #value => #name::#vname, }
-    //     })
-    //     .collect();
 
     // We collect here 2 token streams: one for table generation, and the other for match statements to convert an integer to the enum
     let (variants, match_variants): (Vec<TokenStream2>, Vec<TokenStream2>) = parsed_enum
         .variants
         .iter()
-        .map(|(ident, value)| {
-            let vname = ident.to_string();
-
+        .map(|(variant_ident, value)| {
             (
-                quote! { table.set(#vname, #value)?; }, // Table generation tokens
-                quote! { #value => #name::#vname } // Integer to enum match tokens
+                quote! { table.set(stringify!(#variant_ident), #value)?; }, // Table generation tokens
+                quote! { #value => Some(Self::#variant_ident), } // Integer to enum match tokens
             )
         })
         .unzip();
@@ -62,10 +42,11 @@ pub fn expand_enum(input: TokenStream2, item: ItemEnum) -> TokenStream2 {
             }
         }
 
-        impl From<isize> for #name {
-            pub fn from(value: isize) -> Self {
+        impl ::mlua_bindgen::FromUsize for #name {
+            fn from_usize(value: usize) -> Option<Self> {
                 match value {
-                    #(#match_variants),*
+                    #(#match_variants)*
+                    _ => None
                 }
             }
         }
