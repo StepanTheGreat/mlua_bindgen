@@ -73,6 +73,8 @@ pub enum LuaType {
     /// Recursive optionals aren't supported, though I'm sure there are tricks to make it valid
     Optional(Box<LuaType>),
     Array(Box<LuaType>),
+    /// A union type that can represent 2 times at the same time. In luau/teal it's `A | B`
+    Either((Box<LuaType>, Box<LuaType>)),
     /// Tuples can only be used as return types
     Tuple(Vec<LuaType>),
     Error,
@@ -123,6 +125,18 @@ impl LuaType {
                 } else if ident == "Vec" {
                     let inner_ty = Self::from_syn_ty(parse_inner_ty(ty_path)?)?;
                     Self::Array(Box::new(inner_ty))
+                } else if ident == "Either" {
+                    let inner_tys = parse_inner_tys(ty_path)?;
+
+                    if inner_tys.len() != 2 {
+                        return Err(Error::ParseErr { message: "Lua union types have to contain exactly 2 generic arguments".to_owned() });
+                    }
+
+                    let left = Self::from_syn_ty(inner_tys[0])?;
+                    let right = Self::from_syn_ty(inner_tys[1])?;
+                    Self::Either((
+                        Box::new(left), Box::new(right)
+                    ))
                 } else {
                     Self::from_syn_ident(ident)
                 }
@@ -181,6 +195,7 @@ impl std::fmt::Display for LuaType {
                 LuaType::Userdata => "userdata".to_owned(),
                 LuaType::Nil => "nil".to_owned(),
                 LuaType::Void => "".to_owned(),
+                LuaType::Either((left, right)) => format!("{left} | {right}"),
                 LuaType::Custom(ty) => format!("{USERDATA_CHAR}{}", ty.clone()),
                 LuaType::Tuple(tys) => {
                     if tys.len() == 1 {
@@ -204,22 +219,31 @@ impl std::fmt::Display for LuaType {
     }
 }
 
-/// Try parse an option type and return its inner type.
-///
-/// This function can fail if the generic arguments are incorrect or the inner type is an option itself
-/// (this crate will try to avoid basic recursive behaviour)
+/// The same as [parse_inner_tys], but only for single items
 fn parse_inner_ty(input: &syn::TypePath) -> Result<&Type, Error> {
+    parse_inner_tys(input).map(|res| res[0])
+}
+
+/// Try parse a generic type with generic arguments. 
+/// 
+/// Will return a vector of referenced types 
+/// 
+/// This function can fail if the generic arguments are incorrect
+fn parse_inner_tys(input: &syn::TypePath) -> Result<Vec<&Type>, Error> {
     let segment = input.path.segments.last().unwrap();
     if let PathArguments::AngleBracketed(args) = &segment.arguments {
-        let inner_ty = match args.args[0] {
-            GenericArgument::Type(ref ty) => ty,
-            _ => {
-                return Err(Error::Unimplemented {
-                    message: "mlua_bindgen only supports types with generic type arguments".to_owned(),
-                })
+        let tys: Vec<&Type> = args.args.iter().map(|arg| {
+            match arg {
+                GenericArgument::Type(ref ty) => Ok(ty),
+                _ => {
+                    Err(Error::Unimplemented {
+                        message: "mlua_bindgen only supports types with generic type arguments".to_owned(),
+                    })
+                }
             }
-        };
-        Ok(inner_ty)
+        }).collect::<Result<Vec<&Type>, Error>>()?;
+
+        Ok(tys)
     } else {
         Err(Error::ParseErr {
             message: "Failed to parse lua type's brackets. Expected angular brackets"
