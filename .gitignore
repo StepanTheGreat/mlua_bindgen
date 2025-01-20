@@ -1,11 +1,10 @@
 /target
 .vscode
 
-# For declaration file gen testing
-test.d.luau
+tlconfig.lua
 
-# For manual luau-lsp testing
-test.luau
+test.d.*
+test.*
 
 # Required by luau-lsp. 
 sourcemap.json
