@@ -13,6 +13,6 @@ fn bindgen() -> Result<(), mlua_bindgen::error::Error> {
         .transform_to_lua()?
         .to_string();
 
-    std::fs::write("test.d.tl", lua_src)?;
+    std::fs::write("./test.d.tl", lua_src)?;
     Ok(())
 }
