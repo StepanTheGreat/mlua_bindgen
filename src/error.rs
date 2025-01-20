@@ -2,6 +2,7 @@
 
 use std::fmt::{Debug, Display};
 
+#[cfg(feature="bindgen")]
 pub enum Error {
     Syn(syn::Error),
     IO(std::io::Error),
@@ -19,6 +20,7 @@ pub enum Error {
     },
 }
 
+#[cfg(feature="bindgen")]
 impl Error {
     fn format_err(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -46,26 +48,31 @@ impl Error {
     }
 }
 
+#[cfg(feature="bindgen")]
 impl std::error::Error for Error {}
 
+#[cfg(feature="bindgen")]
 impl Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.format_err(f)
     }
 }
 
+#[cfg(feature="bindgen")]
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.format_err(f)
     }
 }
 
+#[cfg(feature="bindgen")]
 impl From<syn::Error> for Error {
     fn from(value: syn::Error) -> Self {
         Self::Syn(value)
     }
 }
 
+#[cfg(feature="bindgen")]
 impl From<std::io::Error> for Error {
     fn from(value: std::io::Error) -> Self {
         Self::IO(value)
