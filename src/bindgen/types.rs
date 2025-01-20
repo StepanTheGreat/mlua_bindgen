@@ -18,6 +18,7 @@ use syn::{GenericArgument, Pat, PathArguments, Type};
 use crate::error::Error;
 
 use super::expand::LuaExpand;
+use super::USERDATA_CHAR;
 
 type TypeMap<'a> = HashMap<&'a str, LuaType>;
 
@@ -168,19 +169,19 @@ impl std::fmt::Display for LuaType {
                 LuaType::Boolean => "boolean".to_owned(),
                 LuaType::String => "string".to_owned(),
                 // "function" can't be used in declaration files, the same thing as with the table
-                LuaType::Function => "(any) -> any".to_owned(),
+                LuaType::Function => "(any): any".to_owned(),
                 LuaType::Array(ty) => format!("{{{ty}}}"),
                 // Depending on the context, optionals are declared differently (in fields/args with `T?`)
                 // while in return types with `T | nil`. We leave this to the individual types
                 LuaType::Optional(ty) => ty.to_string(),
                 LuaType::Error => "error".to_owned(),
                 // "table" isn't acceptable in declaration files, so we use this any syntax
-                LuaType::Table => "{[any]: any}".to_owned(),
+                LuaType::Table => "{any: any}".to_owned(),
                 LuaType::Thread => "thread".to_owned(),
                 LuaType::Userdata => "userdata".to_owned(),
                 LuaType::Nil => "nil".to_owned(),
-                LuaType::Void => "()".to_owned(),
-                LuaType::Custom(ty) => ty.clone(),
+                LuaType::Void => "".to_owned(),
+                LuaType::Custom(ty) => format!("{USERDATA_CHAR}{}", ty.clone()),
                 LuaType::Tuple(tys) => {
                     if tys.len() == 1 {
                         format!("({})", tys[0])
@@ -243,7 +244,7 @@ impl std::fmt::Display for LuaArg {
         let optional = if self.ty.is_optional() { "?" } else { "" };
         let name = &self.name;
         let ty = &self.ty;
-        write!(f, "{name}: {ty}{optional}")
+        write!(f, "{name}{optional}: {ty}")
     }
 }
 
@@ -257,9 +258,13 @@ pub struct LuaReturn {
 
 impl std::fmt::Display for LuaReturn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let optional = if self.ty.is_optional() { " | nil" } else { "" };
-        let ty = &self.ty;
-        write!(f, "{ty}{optional}")
+        if let LuaType::Void = self.ty {
+            write!(f, "")
+        } else {
+            let optional = if self.ty.is_optional() { " | nil" } else { "" };
+            let ty = &self.ty;
+            write!(f, ": {ty}{optional}")
+        }
     }
 }
 
@@ -333,6 +338,7 @@ impl LuaFunc {
 
         for (ind, arg) in self.args.iter().enumerate() {
             let comma = if ind > 0 { ", " } else { "" };
+
             string += &format!("{comma}{arg}");
         }
         string
@@ -346,7 +352,7 @@ impl LuaFunc {
     pub fn as_ty(&self) -> String {
         let args = self.get_fmt_args();
         let return_ty = &self.return_ty;
-        format!("({args}) -> {return_ty}")
+        format!("function({args}){return_ty}")
     }
 
     /// The same as [`LuaFunc::as_ty`], but for impl functions (class functions or methods)
@@ -363,7 +369,8 @@ impl LuaFunc {
         let return_ty = self.return_ty.to_string().replace("Self", ty);
 
         let self_arg = if is_method {
-            format!("self: {ty}")
+            // format!("self: {ty}")
+            "self".to_owned()
         } else {
             "".to_owned()
         };
@@ -376,7 +383,7 @@ impl LuaFunc {
         .to_owned();
 
         // TODO: Sometimes arguments can be empty, so a trailing comma can cause issues in the future.
-        format!("({self_arg}{self_comma}{args}) -> {return_ty}")
+        format!("function({self_arg}{self_comma}{args}){return_ty}")
     }
 }
 
@@ -601,7 +608,7 @@ mod test {
 
         assert_eq!(
             tuple.to_string(),
-            "(boolean, MyType, number, nil)".to_owned()
+            "(boolean, uMyType, number, nil)".to_owned()
         );
 
         let single_tuple = LuaType::Tuple(vec![LuaType::String]);

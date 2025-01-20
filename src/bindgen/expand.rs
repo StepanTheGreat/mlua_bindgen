@@ -3,6 +3,7 @@
 use super::{
     types::{LuaEnum, LuaFunc, LuaModule, LuaStruct},
     utils::add_tabs,
+    USERDATA_CHAR
 };
 use std::fmt::Write;
 
@@ -24,16 +25,16 @@ impl LuaExpand for LuaFunc {
 
         // First we write the doc string to our function, if it is present
         if let Some(ref doc) = self.doc {
-            writeln!(&mut expanded, "--[[{doc}]]").unwrap();
+            writeln!(&mut expanded, "--- {doc}").unwrap();
         }
 
         // Depending on the nesting, luau function declarations aren't the same.
         // Global functions are declared directly as function {name}({named args}): {ret type},
         // but nested functions (included in types or )
         if inside_parent {
-            writeln!(&mut expanded, "{name}: ({args}) -> {ret_ty},").unwrap();
+            writeln!(&mut expanded, "{name}: function({args}){ret_ty}").unwrap();
         } else {
-            writeln!(&mut expanded, "declare function {name}({args}): {ret_ty}").unwrap();
+            writeln!(&mut expanded, "global function {name}({args}){ret_ty}\nend").unwrap();
         }
 
         (String::new(), expanded)
@@ -49,16 +50,16 @@ impl LuaExpand for LuaModule {
 
         // First we write the doc string to our function, if it is present
         if let Some(ref doc) = self.doc {
-            writeln!(&mut expanded, "--[[{doc}]]").unwrap();
+            writeln!(&mut expanded, "--- {doc}").unwrap();
         }
 
         // Depending on the nesting, luau function declarations aren't the same.
         // Global functions are declared directly as function {name}({named args}): {ret type},
         // but nested functions (included in types or )
         if inside_parent {
-            writeln!(&mut expanded, "{name}: {{").unwrap();
+            writeln!(&mut expanded, "record {name}").unwrap();
         } else {
-            writeln!(&mut expanded, "declare {name}: {{").unwrap();
+            writeln!(&mut expanded, "global record {name}").unwrap();
         }
 
         for lua_impl in self.impls.iter() {
@@ -89,8 +90,8 @@ impl LuaExpand for LuaModule {
             write!(&mut expanded, "{child_expand}").unwrap();
         }
 
-        let comma = if inside_parent { "," } else { "" };
-        writeln!(&mut expanded, "}}{comma}").unwrap();
+        // let comma = if inside_parent { "," } else { "" };
+        writeln!(&mut expanded, "end").unwrap();
 
         (global, expanded)
     }
@@ -104,25 +105,25 @@ impl LuaExpand for LuaEnum {
 
         // First we write the doc string to our function, if it is present
         if let Some(ref doc) = self.doc {
-            writeln!(&mut expanded, "--[[{doc}]]").unwrap();
+            writeln!(&mut expanded, "--- {doc}").unwrap();
         }
 
         // Depending on the nesting, luau function declarations aren't the same.
         // Global functions are declared directly as function {name}({named args}): {ret type},
         // but nested functions (included in types or )
         if inside_parent {
-            writeln!(&mut expanded, "{name}: {{").unwrap();
+            writeln!(&mut expanded, "record {name}").unwrap();
         } else {
-            writeln!(&mut expanded, "declare {name}: {{").unwrap();
+            writeln!(&mut expanded, "global record {name}").unwrap();
         }
 
         for var in self.variants.iter() {
-            writeln!(&mut expanded, "    {}: number,", var.name).unwrap();
+            writeln!(&mut expanded, "    {}: number", var.name).unwrap();
         }
 
-        let comma = if inside_parent { "," } else { "" };
+        // let comma = if inside_parent { "," } else { "" };
 
-        writeln!(&mut expanded, "}}{comma}").unwrap();
+        writeln!(&mut expanded, "end").unwrap();
 
         (String::new(), expanded)
     }
@@ -138,52 +139,52 @@ impl LuaExpand for LuaStruct {
         // First we expand the type
 
         if let Some(ref doc) = self.doc {
-            writeln!(&mut global_ty, "--[[{doc}]]").unwrap();
+            writeln!(&mut global_ty, "--- {doc}").unwrap();
         }
 
-        writeln!(&mut global_ty, "export type {name} = {{").unwrap();
+        writeln!(&mut global_ty, "global type {USERDATA_CHAR}{name} = record").unwrap();
 
         for field in self.fields.iter() {
             let fname = field.name.clone();
             let fty = field.ty.clone();
-            writeln!(&mut global_ty, "    {fname}: {fty},").unwrap();
+            writeln!(&mut global_ty, "    {fname}: {fty}").unwrap();
         }
 
         for method in self.methods.iter() {
             let fname = method.name.clone();
             let fty = method.as_ty_impl(name, true);
-            writeln!(&mut global_ty, "    {fname}: {fty},").unwrap();
+            writeln!(&mut global_ty, "    {fname}: {fty}").unwrap();
         }
 
         for meta_func in self.meta_funcs.iter() {
             let fname = meta_func.name.clone();
             let fty = meta_func.as_ty_impl(name, false);
-            writeln!(&mut global_ty, "    {fname}: {fty},").unwrap();
+            writeln!(&mut global_ty, "    metamethod {fname}: {fty}").unwrap();
         }
 
-        writeln!(&mut global_ty, "}}").unwrap();
+        writeln!(&mut global_ty, "end").unwrap();
 
         // Now we expand the table
 
         if let Some(ref doc) = self.doc {
-            writeln!(&mut expanded, "--[[{doc}]]").unwrap();
+            writeln!(&mut expanded, "--- {doc}").unwrap();
         }
 
         if inside_parent {
-            writeln!(&mut expanded, "{name}: {{").unwrap();
+            writeln!(&mut expanded, "record {name}").unwrap();
         } else {
-            writeln!(&mut expanded, "declare {name}: {{").unwrap();
+            writeln!(&mut expanded, "global record {name}").unwrap();
         }
 
         for func in self.funcs.iter() {
             let fname = func.name.clone();
             let fty = func.as_ty_impl(name, false);
-            writeln!(&mut expanded, "    {fname}: {fty},").unwrap();
+            writeln!(&mut expanded, "    {fname}: {fty}").unwrap();
         }
 
-        let comma = if inside_parent { "," } else { "" };
+        // let comma = if inside_parent { "," } else { "" };
 
-        writeln!(&mut expanded, "}}{comma}").unwrap();
+        writeln!(&mut expanded, "end").unwrap();
 
         // Now finally return
 
