@@ -53,8 +53,11 @@ mod super_inner {
     #[mlua_bindgen]
     impl CoolNumber {
         #[func]
-        fn new(_: _, val: f64) -> Self {
-            Ok(Self::new(val))
+        fn new(_: _, val: mlua::Either<f32, Self>) -> Self {
+            Ok(match val {
+                mlua::Either::Left(num) => Self::new(val),
+                mlua::Either::Right(other) => Self::new(other.val)
+            })
         }
 
         #[get]
