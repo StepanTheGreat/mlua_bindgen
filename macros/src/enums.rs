@@ -18,14 +18,38 @@ pub fn expand_enum(input: TokenStream2, item: ItemEnum) -> TokenStream2 {
     };
 
     let name = parsed_enum.ident.to_token_stream();
-    let variants: Vec<TokenStream2> = parsed_enum
+    // let variants: Vec<TokenStream2> = parsed_enum
+    //     .variants
+    //     .iter()
+    //     .map(|(ident, value)| {
+    //         let vname = ident.to_string();
+    //         quote! { table.set(#vname, #value)?; }
+    //     })
+    //     .collect();
+
+    // /// Variants that instead map 
+    // let match_variants: Vec<TokenStream2> = parsed_enum
+    //     .variants
+    //     .iter()
+    //     .map(|(ident, value)| {
+    //         let vname = ident.to_string();
+    //         quote! { #value => #name::#vname, }
+    //     })
+    //     .collect();
+
+    // We collect here 2 token streams: one for table generation, and the other for match statements to convert an integer to the enum
+    let (variants, match_variants): (Vec<TokenStream2>, Vec<TokenStream2>) = parsed_enum
         .variants
         .iter()
         .map(|(ident, value)| {
             let vname = ident.to_string();
-            quote! { table.set(#vname, #value)?; }
+
+            (
+                quote! { table.set(#vname, #value)?; }, // Table generation tokens
+                quote! { #value => #name::#vname } // Integer to enum match tokens
+            )
         })
-        .collect();
+        .unzip();
 
     quote! {
         #input
@@ -35,6 +59,14 @@ pub fn expand_enum(input: TokenStream2, item: ItemEnum) -> TokenStream2 {
                 let table = lua.create_table()?;
                 #(#variants)*
                 Ok(table)
+            }
+        }
+
+        impl From<isize> for #name {
+            pub fn from(value: isize) -> Self {
+                match value {
+                    #(#match_variants),*
+                }
             }
         }
     }
