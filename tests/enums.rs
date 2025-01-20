@@ -1,8 +1,10 @@
 use macros::mlua_bindgen;
 use mlua_bindgen::AsTable;
+use mlua_bindgen::FromUsize;
 
 #[allow(dead_code)]
 #[mlua_bindgen]
+#[derive(Debug, PartialEq)]
 enum GreatEnum {
     Var1,
     Var2,
@@ -25,6 +27,10 @@ fn enums() -> mlua::Result<()> {
     ",
     )
     .exec()?;
+
+    // We're also going to test convertations back from unsigned integers
+    assert_eq!(GreatEnum::from_usize(100), Some(GreatEnum::Var100));
+    assert_eq!(GreatEnum::from_usize(102), None);
 
     Ok(())
 }
