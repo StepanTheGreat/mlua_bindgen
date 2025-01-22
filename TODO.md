@@ -1,9 +1,6 @@
 # TODO
 - Heavy documentation. The entire library is poorly documented, so I think I should spend a fair amount
 of time on documenting everything even better.
-- Add support for different lua flavors provided by mlua (ie `luau`, `lua-jit` and so on). Currently this crate
-uses `luau` internally. (It may not influence anything, but adding these flavors as conditional choice could be
-better)
 - Bindings generation somewhat works, but needs a huge overwrite (extremely bad written).
 - Support more types with generics (i.e. `Vec<u8>` -> `{number}` and so on)
 after macro generation)
