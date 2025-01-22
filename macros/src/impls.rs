@@ -117,8 +117,9 @@ pub fn expand_impl(input: ItemImpl) -> TokenStream2 {
             }
         }
 
-        impl ::mlua_bindgen::AsTable for #impl_name {
-            fn as_table(lua: &::mlua::Lua) -> ::mlua::Result<::mlua::Table> {
+        impl #impl_name {
+            // AsTable
+            pub fn as_table(lua: &::mlua::Lua) -> ::mlua::Result<::mlua::Table> {
                 let table = lua.create_table()?;
                 #(#funcs)*
                 Ok(table)

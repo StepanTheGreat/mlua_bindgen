@@ -10,5 +10,4 @@ proc-macro = true
 shared = {path="../shared"}
 syn = {workspace = true}
 proc-macro2 = {workspace = true}
-mlua = {workspace = true}
 quote = {workspace = true}

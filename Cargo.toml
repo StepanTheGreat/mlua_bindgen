@@ -5,10 +5,9 @@ edition = "2021"
 
 [features]
 default = []
-bindgen = ["walkdir"]
-
+bindgen = ["dep:walkdir"]
+ 
 [dependencies]
-mlua = { workspace = true }
 syn = { workspace = true }
 proc-macro2 = { workspace = true }
 macros = {path="./macros"}
@@ -16,7 +15,7 @@ shared = {path="./shared"}
 walkdir = {version="2.5.0", optional = true}
 
 [dev-dependencies]
-mlua = {workspace = true, features=["macros"]}
+mlua = {workspace = true, features=["macros", "luau"]}
 
 [workspace]
 members = [
@@ -27,5 +26,5 @@ members = [
 [workspace.dependencies]
 syn = {version="2.0.89", features = ["full"]}
 proc-macro2 = "1.0.91"
-mlua = {version="0.10.2", features=["luau"]}
+mlua = {version="0.10.2"}
 quote = "1.0.0"
