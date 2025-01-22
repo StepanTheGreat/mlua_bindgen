@@ -1,6 +1,4 @@
 use macros::mlua_bindgen;
-use mlua_bindgen::AsTable;
-use mlua_bindgen::FromUsize;
 
 #[allow(dead_code)]
 #[mlua_bindgen]

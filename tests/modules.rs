@@ -2,7 +2,7 @@ use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 
 use math::Vector;
-use mlua_bindgen::{mlua_bindgen, AsTable};
+use mlua_bindgen::mlua_bindgen;
 
 static COUNTER: AtomicU32 = AtomicU32::new(5);
 

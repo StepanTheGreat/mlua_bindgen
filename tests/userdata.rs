@@ -1,6 +1,5 @@
 use macros::mlua_bindgen;
 use mlua::FromLua;
-use mlua_bindgen::AsTable;
 
 #[derive(FromLua, Clone)]
 pub struct ResId {
