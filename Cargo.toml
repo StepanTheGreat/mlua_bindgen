@@ -27,5 +27,5 @@ members = [
 [workspace.dependencies]
 syn = {version="2.0.89", features = ["full"]}
 proc-macro2 = "1.0.91"
-mlua = {version="0.10.2"}
+mlua = {version="0.12.2"}
 quote = "1.0.0"
