@@ -15,7 +15,7 @@ use std::{
 };
 use syn::{GenericArgument, Pat, PathArguments, Type};
 
-use crate::error::Error;
+use crate::{bindgen::ExpandLang, error::Error};
 
 use super::expand::LuaExpand;
 use super::USERDATA_CHAR;
@@ -73,6 +73,7 @@ pub enum LuaType {
     /// Recursive optionals aren't supported, though I'm sure there are tricks to make it valid
     Optional(Box<LuaType>),
     Array(Box<LuaType>),
+    Map(Box<LuaType>, Box<LuaType>),
     /// A union type that can represent 2 times at the same time. In luau/teal it's `A | B`
     Either((Box<LuaType>, Box<LuaType>)),
     /// Tuples can only be used as return types
@@ -125,6 +126,18 @@ impl LuaType {
                 } else if ident == "Vec" {
                     let inner_ty = Self::from_syn_ty(parse_inner_ty(ty_path)?)?;
                     Self::Array(Box::new(inner_ty))
+                } else if ident == "HashMap" {
+                    let args = parse_inner_tys(ty_path)?;
+                    
+                    if args.len() != 2 {
+                        return Err(Error::ParseErr { message: "Invalid generic arguments given to a hashmap, expected 2".to_owned() });
+                    }
+
+                    let key_ty = Self::from_syn_ty(args[0])?;
+                    let val_ty = Self::from_syn_ty(args[1])?;
+
+                    Self::Map(Box::new(key_ty), Box::new(val_ty))
+
                 } else if ident == "Either" {
                     let inner_tys = parse_inner_tys(ty_path)?;
 
@@ -183,8 +196,10 @@ impl std::fmt::Display for LuaType {
                 LuaType::Boolean => "boolean".to_owned(),
                 LuaType::String => "string".to_owned(),
                 // "function" can't be used in declaration files, the same thing as with the table
-                LuaType::Function => "(any): any".to_owned(),
+                LuaType::Function => "(any) -> any".to_owned(),
                 LuaType::Array(ty) => format!("{{{ty}}}"),
+                LuaType::Map(ty_key, ty_val) => format!("{{[{ty_key}]: {ty_val}}}"),
+
                 // Depending on the context, optionals are declared differently (in fields/args with `T?`)
                 // while in return types with `T | nil`. We leave this to the individual types
                 LuaType::Optional(ty) => ty.to_string(),
@@ -194,7 +209,7 @@ impl std::fmt::Display for LuaType {
                 LuaType::Thread => "thread".to_owned(),
                 LuaType::Userdata => "userdata".to_owned(),
                 LuaType::Nil => "nil".to_owned(),
-                LuaType::Void => "".to_owned(),
+                LuaType::Void => "()".to_owned(),
                 LuaType::Either((left, right)) => format!("{left} | {right}"),
                 LuaType::Custom(ty) => format!("{USERDATA_CHAR}{}", ty.clone()),
                 LuaType::Tuple(tys) => {
@@ -258,6 +273,7 @@ pub type ItemDoc = Option<String>;
 pub struct LuaArg {
     pub name: String,
     pub ty: LuaType,
+
     /// Optional args can be ignored when calling a function. In rust it's declared as [`Option<T>`],
     /// while in Lua it's just `T?`
     pub optional: bool,
@@ -268,7 +284,7 @@ impl std::fmt::Display for LuaArg {
         let optional = if self.ty.is_optional() { "?" } else { "" };
         let name = &self.name;
         let ty = &self.ty;
-        write!(f, "{name}{optional}: {ty}")
+        write!(f, "{name}: {ty}{optional}")
     }
 }
 
@@ -277,17 +293,16 @@ impl std::fmt::Display for LuaArg {
 /// This only exists to simplify working with functions that return Option<T>
 pub struct LuaReturn {
     pub ty: LuaType,
-    pub optional: bool,
 }
 
 impl std::fmt::Display for LuaReturn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let LuaType::Void = self.ty {
-            write!(f, "")
+            write!(f, "()")
         } else {
-            let optional = if self.ty.is_optional() { " | nil" } else { "" };
+            let optional = if self.ty.is_optional() { "?" } else { "" };
             let ty = &self.ty;
-            write!(f, ": {ty}{optional}")
+            write!(f, "{ty}{optional}")
         }
     }
 }
@@ -318,9 +333,7 @@ impl LuaFunc {
 
         let return_ty = {
             let ty = LuaType::from_syn_ty(&parsed.return_ty)?;
-            let optional = ty.is_optional();
-
-            LuaReturn { ty, optional }
+            LuaReturn { ty }
         };
 
         // Get the amount of required arguments by mlua. These have no use in luau declaration
@@ -373,17 +386,17 @@ impl LuaFunc {
     /// It for example can be used in luau return types.
     /// Since `function` can't be used for returns, a more precise declaration is required:
     /// `(arg1, arg2, ...) -> return_type`
-    pub fn as_ty(&self) -> String {
+    pub fn as_ty(&self, ret_symb: &str) -> String {
         let args = self.get_fmt_args();
         let return_ty = &self.return_ty;
-        format!("function({args}){return_ty}")
+        format!("function({args}){ret_symb} {return_ty}")
     }
 
     /// The same as [`LuaFunc::as_ty`], but for impl functions (class functions or methods)
     ///
     /// It takes a type name as an argument, and will replace all `Self` keywords with the name
     /// of the type.
-    pub fn as_ty_impl(&self, ty: &String, is_method: bool) -> String {
+    pub fn as_ty_impl(&self, ty: &String, is_method: bool, ret_symb: &str) -> String {
         let args = self.get_fmt_args();
 
         // We use this ugly and slow method for now, I'll change it in the future.
@@ -407,7 +420,7 @@ impl LuaFunc {
         .to_owned();
 
         // TODO: Sometimes arguments can be empty, so a trailing comma can cause issues in the future.
-        format!("function({self_arg}{self_comma}{args}){return_ty}")
+        format!("({self_arg}{self_comma}{args}){ret_symb}{return_ty}")
     }
 }
 
@@ -571,7 +584,9 @@ pub struct LuaFile<'a> {
 
 impl<'a> LuaFile<'a> {
     pub(crate) fn new() -> Self {
-        Self { items: Vec::new() }
+        Self { 
+            items: Vec::new()
+        }
     }
 
     /// Add an item that implements [LuaExpand] to the list

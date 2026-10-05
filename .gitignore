@@ -8,3 +8,5 @@ test.*
 
 # Required by luau-lsp. 
 sourcemap.json
+
+*.d.luau

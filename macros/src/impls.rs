@@ -68,7 +68,7 @@ pub fn expand_impl_func(input: ParsedImplFunc) -> TokenStream2 {
             );
         },
         FuncKind::Meta => quote! {
-            methods.add_meta_function::<_, (#(#user_arg_types),*), #return_ty>(
+            methods.add_meta_method::<_, (#(#user_arg_types),*), #return_ty>(
                 stringify!(#name),
                 |#(#req_arg_names), *, (#(#user_arg_names), *)| #block
             );

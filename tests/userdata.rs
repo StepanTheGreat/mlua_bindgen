@@ -29,17 +29,17 @@ impl ResId {
     }
 
     #[meta]
-    fn __add(_: &mlua::Lua, a: Self, b: Self) -> Self {
-        Ok(Self { id: a.id + b.id })
+    fn __add(_: &mlua::Lua, this: &Self, b: Self) -> Self {
+        Ok(Self { id: this.id + b.id })
     }
 
     #[meta]
-    fn __eq(_: &mlua::Lua, this: Self, val: Self) -> bool {
+    fn __eq(_: &mlua::Lua, this: &Self, val: Self) -> bool {
         Ok(this.id == val.id)
     }
 
     #[meta]
-    fn __tostring(_: &mlua::Lua, this: Self) -> String {
+    fn __tostring(_: &mlua::Lua, this: &Self) -> String {
         Ok(format!("<ResId {}>", this.id))
     }
 }

@@ -163,7 +163,7 @@ pub fn parse_func(item: impl CommonFunc, kind: &FuncKind) -> syn::Result<ParsedF
     let mut args: Vec<FuncArg> = Vec::new();
     let req_arg_count = match kind {
         FuncKind::Method | FuncKind::MethodMut => 2, // Lua + Self
-        FuncKind::Meta => 1,                         // Lua
+        FuncKind::Meta => 2,                         // Lua + Self
         FuncKind::Func => 1,                         // Lua
     };
     for (ind, inp_ty) in info.args.into_iter().enumerate() {
@@ -186,7 +186,7 @@ pub fn parse_func(item: impl CommonFunc, kind: &FuncKind) -> syn::Result<ParsedF
             FuncKind::Func => "&Lua",
             FuncKind::Method => "&Lua, &Self",
             FuncKind::MethodMut => "&Lua, &mut Self",
-            FuncKind::Meta => "&Lua, &impl FromLua",
+            FuncKind::Meta => "&Lua, &Self",
         };
         return Err(syn_error(
             name,

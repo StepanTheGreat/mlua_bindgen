@@ -13,6 +13,7 @@ proc-macro2 = { workspace = true }
 macros = {path="./macros"}
 shared = {path="./shared"}
 walkdir = {version="2.5.0", optional = true}
+anyhow = "1.0.104"
 
 [dev-dependencies]
 mlua = {workspace = true, features=["macros", "luau"]}

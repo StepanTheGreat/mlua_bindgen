@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use proc_macro2::TokenStream as TokenStream2;
 use syn::{
-    parse::Parse, parse2, spanned::Spanned, token::Comma, Attribute, Expr, ExprArray, Ident, Item, ItemEnum, ItemFn, ItemImpl, ItemMod, Token
+    parse::Parse, parse2, spanned::Spanned, token::Comma, Expr, ExprArray, Ident, Item, ItemEnum, ItemFn, ItemImpl, ItemMod, Token
 };
 
 pub const MLUA_BINDGEN_ATTR: &str = "mlua_bindgen";

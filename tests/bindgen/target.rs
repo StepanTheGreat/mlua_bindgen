@@ -146,6 +146,12 @@ mod main {
             Ok(())
         }
 
+        #[method_mut]
+        fn hello_mut(_: _, this: &mut Self) {
+            // Do something
+            Ok(())
+        }
+
         #[get]
         fn x(_: _, this: &Self) -> f32 {
             Ok(this.x)
@@ -188,6 +194,16 @@ mod main {
     #[mlua_bindgen]
     pub fn do_something_better_vec(_: &mlua::Lua, what: u32, other: String) -> Vec<String> {
         Ok(vec!["".to_owned(), "".to_owned(), "".to_owned()])
+    }
+
+    #[mlua_bindgen]
+    pub fn more_values(_: &mlua::Lua, what: Option<u32>, other: Option<Vec<u32>>) -> (u32, Vec<String>) {
+        Ok((20, "".to_owned()))
+    }
+
+    #[mlua_bindgen]
+    pub fn more_values_maps(_: &mlua::Lua, what: Option<Vec<HashMap<u32, Vec<String>>>>) -> (u32, Vec<String>) {
+        Ok((20, vec!["".to_owned()]))
     }
 
     /// This function should not be in the generated bindings

@@ -8,11 +8,12 @@ use mlua_bindgen::bindgen::BindgenTransformer;
 #[test]
 fn bindgen() -> Result<(), mlua_bindgen::error::Error> {
     let lua_src = BindgenTransformer::new()
-        .add_input_dir("./tests/bindgen")
+        .add_input_dir("tests/bindgen")
         .parse()?
         .transform_to_lua()?
         .to_string();
 
-    std::fs::write("./test.d.tl", lua_src)?;
+    let _ = std::fs::write("tests/bindgen/expected.d.luau", &lua_src);
+
     Ok(())
 }
