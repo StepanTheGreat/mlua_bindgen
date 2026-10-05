@@ -155,11 +155,16 @@ lua.load('
 //
 ```
 
+### CLI tool
+You can install the project with cargo and directly generate luau bindings from your own rust source directories.
+`mlua_bindgen ./src bindings.d.luau`
+
 ## Compatibility table
 | Crate version | `mlua` version |
 | ----          | ----           |
 | 0.2           | 0.10.1         |
 | 0.3           | 0.10.2         |
+| 0.3.1         | 0.12.2         |
 
 ## Some known issues
 1. You can't declare modules inside modules (You can connect them though)
