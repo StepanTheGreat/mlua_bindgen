@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use syn::{Ident, Item, ItemMod, Path, Visibility};
 
 use crate::utils::{
-    contains_attr, syn_error, ItemAttribute, ItemAttributes, LastPathIdent, ToIdent, MLUA_BINDGEN_ATTR, MLUA_IGNORE_BINDGEN_ATTR
+    ItemAttribute, ItemAttributes, LastPathIdent, MLUA_BINDGEN_ATTR, MLUA_IGNORE_BINDGEN_ATTR, ToIdent, contains_attr, parse_documentation, syn_error
 };
 
 use super::{
@@ -80,6 +80,7 @@ pub struct ParsedModule {
     pub includes: Vec<ModulePath>,
     pub items: Vec<ModuleItem>,
     pub post_init_func: Option<syn::Path>,
+    pub docs: Option<String>
 }
 
 impl ParsedModule {
@@ -112,6 +113,8 @@ pub fn parse_mod(
     let mut includes: Vec<ModulePath> = Vec::new();
     let mut post_init_func = None;
     let bindgen_ignore = contains_attr(&item.attrs, MLUA_IGNORE_BINDGEN_ATTR);
+
+    let docs = parse_documentation(&item.attrs);
 
     let mut included = Vec::new();
     // Iterate over all attributes in the list.
@@ -202,5 +205,6 @@ pub fn parse_mod(
         includes,
         items,
         post_init_func,
+        docs
     })
 }

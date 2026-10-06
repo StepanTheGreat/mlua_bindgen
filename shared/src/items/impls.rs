@@ -1,6 +1,6 @@
 use syn::{ImplItem, ImplItemFn, ItemImpl, Type};
 
-use crate::utils::{contains_attr, syn_error, MLUA_IGNORE_BINDGEN_ATTR};
+use crate::utils::{MLUA_IGNORE_BINDGEN_ATTR, contains_attr, parse_documentation, syn_error};
 
 use super::funcs::{parse_func, FuncKind, ParsedFunc};
 
@@ -43,6 +43,7 @@ pub struct ParsedImpl {
     pub funcs: Vec<ParsedImplFunc>,
     pub methods: Vec<ParsedImplFunc>,
     pub meta_funcs: Vec<ParsedImplFunc>,
+    pub docs: Option<String>
 }
 
 impl ParsedImpl {
@@ -55,6 +56,7 @@ impl ParsedImpl {
             funcs: Vec::new(),
             methods: Vec::new(),
             meta_funcs: Vec::new(),
+            docs: None
         }
     }
 }
@@ -67,6 +69,8 @@ pub fn parse_impl(input: ItemImpl) -> syn::Result<ParsedImpl> {
     let mut methods: Vec<ParsedImplFunc> = Vec::new();
     let mut funcs: Vec<ParsedImplFunc> = Vec::new();
     let mut meta_funcs: Vec<ParsedImplFunc> = Vec::new();
+
+    let docs = parse_documentation(&input.attrs);
 
     for impl_item in input.items {
         if let ImplItem::Fn(impl_fn) = impl_item {
@@ -95,6 +99,7 @@ pub fn parse_impl(input: ItemImpl) -> syn::Result<ParsedImpl> {
         methods,
         funcs,
         meta_funcs,
+        docs
     })
 }
 

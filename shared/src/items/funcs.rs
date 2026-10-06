@@ -6,7 +6,7 @@ use syn::{
     Block, FnArg, Ident, ImplItemFn, ItemFn, Pat, ReturnType, Type, TypeTuple, Visibility,
 };
 
-use crate::utils::{contains_attr, syn_error, MLUA_IGNORE_BINDGEN_ATTR};
+use crate::utils::{MLUA_IGNORE_BINDGEN_ATTR, contains_attr, parse_documentation, syn_error};
 
 pub struct CommonFuncInfo {
     pub ident: Ident,
@@ -15,6 +15,7 @@ pub struct CommonFuncInfo {
     pub block: Block,
     pub ret_ty: ReturnType,
     pub args: Punctuated<FnArg, Comma>,
+    pub docs: Option<String>
 }
 
 /// Simply a getter for functions, since syn separates functions into [`ImplItemFn`] and [`ItemFn`].
@@ -32,12 +33,13 @@ impl CommonFunc for ImplItemFn {
             block: self.block,
             ret_ty: self.sig.output,
             args: self.sig.inputs,
+            docs: parse_documentation(&self.attrs)
         }
     }
 }
 
 impl CommonFunc for ItemFn {
-    fn get_info(self) -> CommonFuncInfo {
+    fn get_info(self) -> CommonFuncInfo {        
         CommonFuncInfo {
             ident: self.sig.ident,
             bindgen_ignore: contains_attr(&self.attrs, MLUA_IGNORE_BINDGEN_ATTR),
@@ -45,6 +47,7 @@ impl CommonFunc for ItemFn {
             block: *self.block,
             ret_ty: self.sig.output,
             args: self.sig.inputs,
+            docs: parse_documentation(&self.attrs)
         }
     }
 }
@@ -99,6 +102,7 @@ pub struct ParsedFunc {
     pub block: Block,
     pub args: Vec<FuncArg>,
     pub return_ty: Type,
+    pub docs: Option<String>
 }
 
 impl ParsedFunc {
@@ -116,6 +120,7 @@ impl ParsedFunc {
             },
             args: Vec::new(),
             return_ty: Type::Verbatim(TokenStream::new()),
+            docs: None
         }
     }
 }
@@ -138,6 +143,8 @@ pub fn parse_func(item: impl CommonFunc, kind: &FuncKind) -> syn::Result<ParsedF
     let bindgen_ignore = info.bindgen_ignore;
     let block = info.block;
     let visibility = info.visibility;
+
+    let docs = info.docs;
 
     // Signature output returns both the return type and the arrow ("-> u32", as example), so we filter it with
     // the match statement here, and convert to tokens
@@ -204,5 +211,6 @@ pub fn parse_func(item: impl CommonFunc, kind: &FuncKind) -> syn::Result<ParsedF
         block,
         return_ty,
         args,
+        docs
     })
 }

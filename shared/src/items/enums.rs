@@ -1,14 +1,22 @@
 use syn::{Expr, Ident, ItemEnum, Lit};
 
-use crate::utils::{contains_attr, syn_error, MLUA_IGNORE_BINDGEN_ATTR};
+use crate::utils::{MLUA_IGNORE_BINDGEN_ATTR, contains_attr, parse_documentation, syn_error};
 
 pub type LuaVariantType = usize;
+
+/// A parsed variant of an enum with name, kind and possibly documentation
+pub struct ParsedEnumVariant {
+    pub ident: Ident,
+    pub kind: LuaVariantType,
+    pub docs: Option<String>
+}
 
 /// Contains general enum information, that is important both for macros and bindgen parsers
 pub struct ParsedEnum {
     pub ident: Ident,
     pub bindgen_ignore: bool,
-    pub variants: Vec<(Ident, LuaVariantType)>,
+    pub variants: Vec<ParsedEnumVariant>,
+    pub docs: Option<String>
 }
 
 impl ParsedEnum {
@@ -18,6 +26,7 @@ impl ParsedEnum {
             ident,
             bindgen_ignore: false,
             variants: Vec::new(),
+            docs: None
         }
     }
 }
@@ -25,12 +34,16 @@ impl ParsedEnum {
 /// Parse an [`ItemEnum`] into [`ParsedEnum`].
 pub fn parse_enum(item: ItemEnum) -> syn::Result<ParsedEnum> {
     let ident = item.ident;
-    let mut variants: Vec<(Ident, LuaVariantType)> = Vec::new();
+    let mut variants: Vec<ParsedEnumVariant> = Vec::new();
     let bindgen_ignore = contains_attr(&item.attrs, MLUA_IGNORE_BINDGEN_ATTR);
+
+    let docs = parse_documentation(&item.attrs);
 
     let mut value: LuaVariantType = 0;
     for variant in item.variants.into_iter() {
         let vident = variant.ident;
+        let docs = parse_documentation(&variant.attrs);
+
         if let Some((_, ref expr)) = variant.discriminant {
             // Trying to avoid nesting here. Plus I'm over-checking errors to avoid undefined behaviour.
             let lit = if let Expr::Lit(lit) = expr {
@@ -59,9 +72,15 @@ pub fn parse_enum(item: ItemEnum) -> syn::Result<ParsedEnum> {
                 ));
             };
         }
-        variants.push((vident, value));
+
+        variants.push(ParsedEnumVariant { 
+            ident: vident, 
+            kind: value, 
+            docs
+        });
+
         value += 1;
     }
 
-    Ok(ParsedEnum { ident, bindgen_ignore, variants })
+    Ok(ParsedEnum { ident, bindgen_ignore, variants, docs })
 }

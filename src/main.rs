@@ -27,13 +27,13 @@ fn run(args: Vec<String>) -> anyhow::Result<()> {
     let lua_src = BindgenTransformer::new()
         .add_input_dir(dir)
         .parse()
-        .map_err(|_| anyhow::anyhow!("Failed to parse rust source directory at {dir}"))?
+        .map_err(|err| anyhow::anyhow!("Failed to parse rust source directory at {dir}: {err}"))?
         .transform_to_lua()
-        .map_err(|_| anyhow::anyhow!("Failed to generate luau bindings for source directory at {dir}"))?
+        .map_err(|err| anyhow::anyhow!("Failed to generate luau bindings for source directory at {dir}: {err}"))?
         .to_string();
 
     std::fs::write(out, &lua_src)
-        .map_err(|_| anyhow::anyhow!("Failed to write luau declaration file at path {out}"))?;
+        .map_err(|err| anyhow::anyhow!("Failed to write luau declaration file at path {out}: {err}"))?;
 
     println!("Bindings successfully generated.");
 

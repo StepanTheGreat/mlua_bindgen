@@ -1,8 +1,9 @@
 use std::fmt::Display;
 
-use proc_macro2::TokenStream as TokenStream2;
+use proc_macro2::{TokenStream as TokenStream2, TokenTree};
+use quote::ToTokens;
 use syn::{
-    parse::Parse, parse2, spanned::Spanned, token::Comma, Expr, ExprArray, Ident, Item, ItemEnum, ItemFn, ItemImpl, ItemMod, Token
+    Expr, ExprArray, Ident, Item, ItemEnum, ItemFn, ItemImpl, ItemMod, Meta, Token, parse::Parse, parse2, spanned::Spanned, token::Comma
 };
 
 pub const MLUA_BINDGEN_ATTR: &str = "mlua_bindgen";
@@ -176,6 +177,32 @@ pub fn contains_attr(attrs: &[syn::Attribute], needed: &str) -> bool {
         }
     }
     false
+}
+
+/// Extract documentation from a list of attributes into a single string
+pub fn parse_documentation(attrs: &[syn::Attribute]) -> Option<String> {
+    let mut out = None;
+    
+    for attr in attrs {
+        if attr.path().is_ident("doc") {
+            if let Meta::NameValue(name_value) = &attr.meta {
+                let s = out.get_or_insert(String::new());
+
+                // Extract the quote
+                let qs = name_value.value.to_token_stream().to_string();
+
+                // Make sure that it has enough characters
+                if qs.len() > 2 {
+
+                    // Only push non-edge characters
+                    s.push_str(&qs[1..qs.len()-1]);
+                    s.push('\n');
+                }
+            }
+        }
+    }
+
+    out
 }
 
 /// A trait for converting types into the Ident token

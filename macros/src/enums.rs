@@ -23,7 +23,10 @@ pub fn expand_enum(input: TokenStream2, item: ItemEnum) -> TokenStream2 {
     let (variants, match_variants): (Vec<TokenStream2>, Vec<TokenStream2>) = parsed_enum
         .variants
         .iter()
-        .map(|(variant_ident, value)| {
+        .map(|var| {
+            let variant_ident = &var.ident;
+            let value = var.kind;
+
             (
                 quote! { table.set(stringify!(#variant_ident), #value)?; }, // Table generation tokens
                 quote! { #value => Some(Self::#variant_ident), } // Integer to enum match tokens

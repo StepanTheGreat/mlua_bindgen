@@ -22,13 +22,6 @@ mod utils;
 /// The char that will be used to diffirentiate between userdata types and tables
 pub(crate) const USERDATA_CHAR: &str = "u";
 
-/// The language to which to expand lua items
-#[derive(Clone, Copy)]
-pub enum ExpandLang {
-    Teal,
-    Lua
-}
-
 /// A collection of all mlua_bindgen items in a single structure
 pub struct ParsedFile {
     mods: Vec<ParsedModule>,

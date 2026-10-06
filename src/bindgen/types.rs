@@ -15,7 +15,7 @@ use std::{
 };
 use syn::{GenericArgument, Pat, PathArguments, Type};
 
-use crate::{bindgen::ExpandLang, error::Error};
+use crate::error::Error;
 
 use super::expand::LuaExpand;
 use super::USERDATA_CHAR;
@@ -276,7 +276,7 @@ pub struct LuaArg {
 
     /// Optional args can be ignored when calling a function. In rust it's declared as [`Option<T>`],
     /// while in Lua it's just `T?`
-    pub optional: bool,
+    pub _optional: bool,
 }
 
 impl std::fmt::Display for LuaArg {
@@ -311,17 +311,19 @@ impl std::fmt::Display for LuaReturn {
 pub struct LuaField {
     pub name: String,
     pub ty: LuaType,
+    pub docs: Option<String>
 }
 
 /// A field for luau enums
 pub struct LuaVariant {
     pub name: String,
+    pub docs: Option<String>
 }
 
 /// A luau function that contains its name, doc, return type, named [`LuaArg`] and its parent module name
 pub struct LuaFunc {
     pub name: String,
-    pub doc: ItemDoc,
+    pub docs: ItemDoc,
     pub return_ty: LuaReturn,
     pub args: Vec<LuaArg>,
 }
@@ -338,6 +340,8 @@ impl LuaFunc {
 
         // Get the amount of required arguments by mlua. These have no use in luau declaration
         let skip_args = parsed.req_arg_count();
+
+        let docs = parsed.docs;
 
         let mut args = Vec::new();
         for (ind, arg) in parsed.args.iter().enumerate() {
@@ -356,13 +360,13 @@ impl LuaFunc {
             args.push(LuaArg {
                 name: arg_name,
                 ty: arg_ty,
-                optional,
+                _optional: optional,
             });
         }
 
         Ok(Self {
             name,
-            doc: None,
+            docs,
             return_ty,
             args,
         })
@@ -386,7 +390,7 @@ impl LuaFunc {
     /// It for example can be used in luau return types.
     /// Since `function` can't be used for returns, a more precise declaration is required:
     /// `(arg1, arg2, ...) -> return_type`
-    pub fn as_ty(&self, ret_symb: &str) -> String {
+    pub fn _as_ty(&self, ret_symb: &str) -> String {
         let args = self.get_fmt_args();
         let return_ty = &self.return_ty;
         format!("function({args}){ret_symb} {return_ty}")
@@ -427,7 +431,7 @@ impl LuaFunc {
 /// In luau described as both type and table
 pub struct LuaStruct {
     pub name: String,
-    pub doc: ItemDoc,
+    pub docs: ItemDoc,
     pub fields: Vec<LuaField>,
     pub funcs: Vec<LuaFunc>,
     pub methods: Vec<LuaFunc>,
@@ -439,6 +443,8 @@ impl LuaStruct {
         let name = parsed.name.to_token_stream().to_string();
         // Remove the lua prefix of course, if it's present
         let name = remove_lua_prefix(name);
+
+        let docs = parsed.docs;
 
         let mut funcs = Vec::new();
         let mut fields = Vec::new();
@@ -466,17 +472,19 @@ impl LuaStruct {
             if let FieldKind::Getter = field.kind {
                 let fname = field.func.name.to_string();
                 let fty = LuaType::from_syn_ty(&field.func.return_ty)?;
+                let docs = field.func.docs;
 
                 fields.push(LuaField {
                     name: fname,
                     ty: fty,
+                    docs
                 });
             }
         }
 
         Ok(Self {
             name,
-            doc: None,
+            docs,
             funcs,
             fields,
             methods,
@@ -487,7 +495,7 @@ impl LuaStruct {
 
 pub struct LuaEnum {
     pub name: String,
-    pub doc: ItemDoc,
+    pub docs: ItemDoc,
     pub variants: Vec<LuaVariant>,
 }
 
@@ -495,18 +503,20 @@ impl LuaEnum {
     pub fn from_parsed(parsed: ParsedEnum) -> Result<Self, Error> {
         let name = parsed.ident.to_string();
         let name = remove_lua_prefix(name);
+        let docs = parsed.docs;
 
         let variants = parsed
             .variants
             .into_iter()
-            .map(|(vident, _)| LuaVariant {
-                name: vident.to_string(),
+            .map(|var| LuaVariant {
+                name: var.ident.to_string(),
+                docs: var.docs
             })
             .collect();
 
         Ok(Self {
             name,
-            doc: None,
+            docs,
             variants,
         })
     }
@@ -517,7 +527,7 @@ impl LuaEnum {
 pub struct LuaModule {
     /// If this module is the main (entrypoint) module
     pub ismain: bool,
-    pub doc: ItemDoc,
+    pub docs: ItemDoc,
     pub name: String,
     pub includes: Vec<ModulePath>,
     pub mods: Vec<LuaModule>,
@@ -529,6 +539,7 @@ pub struct LuaModule {
 impl LuaModule {
     pub fn from_parsed(parsed: ParsedModule) -> Result<Self, Error> {
         let name = parsed.ident.to_string();
+        let docs = parsed.docs;
 
         let ismain = parsed.ismain;
         let mut funcs = Vec::new();
@@ -553,7 +564,7 @@ impl LuaModule {
             ismain,
             name,
             includes: parsed.includes,
-            doc: None,
+            docs,
             mods: Vec::new(),
             funcs,
             impls,

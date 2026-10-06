@@ -19,6 +19,9 @@ mod ignored_inner {
 #[mlua_bindgen(include=[ignored_inner_module])]
 mod ignored {
 
+    /// Test documentation 1
+    /// 
+    /// Test documentation 2
     #[mlua_bindgen]
     pub fn ignored_function(_: &mlua::Lua) {
         Ok(())
@@ -29,16 +32,25 @@ mod ignored {
 mod super_inner {
     use macros::mlua_bindgen;
 
+    /// Test documentation 1
+    /// 
+    /// Test documentation 2
     #[mlua_bindgen]
     pub fn add(_: &mlua::Lua, val1: f32, val2: f32) -> f32 {
         Ok(val1 + val2)
     }
 
+    /// Test documentation 1
+    /// 
+    /// Test documentation 2
     #[mlua_bindgen]
     pub fn subtract(_: &mlua::Lua, val1: f32, val2: f32) -> f32 {
         Ok(val1 - val2)
     }
 
+    /// Test documentation 1
+    /// 
+    /// Test documentation 2
     #[derive(Clone, Debug, FromLua, PartialEq)]
     pub struct CoolNumber {
         val: f64
@@ -50,8 +62,14 @@ mod super_inner {
         }
     }
 
+    /// Test documentation 1
+    /// 
+    /// Test documentation 2
     #[mlua_bindgen]
     impl CoolNumber {
+        /// Test documentation 1
+        /// 
+        /// Test documentation 2
         #[func]
         fn new(_: _, val: mlua::Either<f32, Self>) -> Self {
             Ok(match val {
@@ -60,6 +78,9 @@ mod super_inner {
             })
         }
 
+        /// Test documentation 1
+        /// 
+        /// Test documentation 2
         #[get]
         fn value(_: _, this: &Self) -> f32 {
             Ok(this.val as f32)
@@ -67,21 +88,38 @@ mod super_inner {
     }
 }
 
+/// Test documentation 1
+/// 
+/// Test documentation 2
 #[mlua_bindgen(include = [super_inner_module])]
 mod inner {
     use macros::mlua_bindgen;
 
+    /// Test documentation 1
+    /// 
+    /// Test documentation 2
     #[mlua_bindgen]
     pub fn mul(_: &mlua::Lua, val1: f32, val2: f32) -> f32 {
         Ok(val1 * val2)
     }
 
+    /// Test documentation 1
+    /// 
+    /// Test documentation 2
     #[mlua_bindgen]
     pub enum Numbers {
+        /// Great
         Num1,
         Num2,
+
+        /// Here's a detailed
+        /// explanation
+        /// 
+        /// of `why`
+        /// 
+        /// This is great
         Num3,
-        // Forgot 4?
+        /// Forgot 4?
         Num5 = 5
     }
 
@@ -122,6 +160,7 @@ mod main {
     /// A Vector object! Quite nice!
     #[mlua_bindgen]
     impl Vector {
+        /// New vector!
         #[func]
         fn new(_: _, x: f32, y: f32) -> Self {
             Ok(Self::new(x, y))

@@ -8,6 +8,13 @@ use super::{
 
 use std::fmt::Write;
 
+/// Convert a doc string into a luau-compatible docstring
+fn dump_luau_documentation(to: &mut String, docs: &str, tab: &str) {
+    for line in docs.lines() {
+        writeln!(to, "{tab}---{line}").unwrap();
+    }
+}
+
 /// I'm not sure thy it's a trait, but okay - maybe for consistency.
 pub trait LuaExpand {
     /// Lua expand will take a reference to self, and expand to 2 strings:
@@ -25,9 +32,9 @@ impl LuaExpand for LuaFunc {
         let args = self.get_fmt_args();
 
         // First we write the doc string to our function, if it is present
-        // if let Some(ref doc) = self.doc {
-        //     writeln!(&mut expanded, "--- {doc}").unwrap();
-        // }
+        if let Some(ref docs) = self.docs {
+            dump_luau_documentation(&mut expanded, docs, "");
+        }
 
         // Depending on the nesting, luau function declarations aren't the same.
         // Global functions are declared directly as function {name}({named args}): {ret type},
@@ -50,9 +57,9 @@ impl LuaExpand for LuaModule {
         let name = &self.name;
 
         // First we write the doc string to our function, if it is present
-        // if let Some(ref doc) = self.doc {
-        //     writeln!(&mut expanded, "--- {doc}").unwrap();
-        // }
+        if let Some(ref docs) = self.docs {
+            dump_luau_documentation(&mut expanded, docs, "");
+        }
 
         // Depending on the nesting, luau function declarations aren't the same.
         // Global functions are declared directly as function {name}({named args}): {ret type},
@@ -110,9 +117,9 @@ impl LuaExpand for LuaEnum {
         let name = &self.name;
 
         // First we write the doc string to our function, if it is present
-        // if let Some(ref doc) = self.doc {
-        //     writeln!(&mut expanded, "--- {doc}").unwrap();
-        // }
+        if let Some(ref docs) = self.docs {
+            dump_luau_documentation(&mut expanded, docs, "");
+        }
 
         // Depending on the nesting, luau function declarations aren't the same.
         // Global functions are declared directly as function {name}({named args}): {ret type},
@@ -124,6 +131,10 @@ impl LuaExpand for LuaEnum {
         writeln!(&mut expanded, "{name}: {{").unwrap();
 
         for var in self.variants.iter() {
+            if let Some(docs) = &var.docs {
+                dump_luau_documentation(&mut expanded, &docs, "    ");
+            }
+
             writeln!(&mut expanded, "    {}: number,", var.name).unwrap();
         }
 
@@ -151,27 +162,42 @@ impl LuaExpand for LuaStruct {
 
         // First we expand the type
 
-        // if let Some(ref doc) = self.doc {
-        //     writeln!(&mut global_ty, "--- {doc}").unwrap();
-        // }
+        if let Some(ref docs) = self.docs {
+            dump_luau_documentation(&mut global_ty, docs, "");
+        }
         
         writeln!(&mut global_ty, "declare extern type {USERDATA_CHAR}{name} with").unwrap();
 
         for field in self.fields.iter() {
             let fname = field.name.clone();
             let fty = field.ty.clone();
+
+            if let Some(docs) = &field.docs {
+                dump_luau_documentation(&mut global_ty, docs, "    ");
+            }
+
             writeln!(&mut global_ty, "    {fname}: {fty}").unwrap();
         }
 
         for method in self.methods.iter() {
             let fname = method.name.clone();
             let fty = method.as_ty_impl(name, true, ": ");
+
+            if let Some(docs) = &method.docs {
+                dump_luau_documentation(&mut global_ty, docs, "    ");
+            }
+
             writeln!(&mut global_ty, "    function {fname}{fty}").unwrap();
         }
 
         for meta_func in self.meta_funcs.iter() {
             let fname = meta_func.name.clone();
             let fty = meta_func.as_ty_impl(name, true, ": ");
+
+            if let Some(docs) = &meta_func.docs {
+                dump_luau_documentation(&mut global_ty, docs, "    ");
+            }
+
             writeln!(&mut global_ty, "    function {fname}{fty}").unwrap();
         }
 
@@ -179,9 +205,9 @@ impl LuaExpand for LuaStruct {
 
         // Now we expand the table
 
-        // if let Some(ref doc) = self.doc {
-        //     writeln!(&mut expanded, "--- {doc}").unwrap();
-        // }
+        if let Some(ref docs) = self.docs {
+            dump_luau_documentation(&mut expanded, docs, "");
+        }
 
         if !inside_parent {
             write!(&mut expanded, "declare ").unwrap();
@@ -191,6 +217,11 @@ impl LuaExpand for LuaStruct {
         for func in self.funcs.iter() {
             let fname = func.name.clone();
             let fty = func.as_ty_impl(name, false, " -> ");
+
+            if let Some(docs) = &func.docs {
+                dump_luau_documentation(&mut expanded, docs, "    ");
+            }
+
             writeln!(&mut expanded, "    {fname}: {fty},").unwrap();
         }
 
