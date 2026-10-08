@@ -169,7 +169,6 @@ impl LuaExpand for LuaStruct {
             dump_luau_documentation(&mut global_ty, docs, "");
         }
         
-        println!("Generating enum type: {USERTYPE_CHAR}{name}");
         writeln!(&mut global_ty, "declare extern type {USERTYPE_CHAR}{name} with").unwrap();
 
         for field in self.fields.iter() {
