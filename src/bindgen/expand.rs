@@ -3,7 +3,7 @@
 use super::{
     types::{LuaEnum, LuaFunc, LuaModule, LuaStruct},
     utils::add_tabs,
-    USERDATA_CHAR
+    USERTYPE_CHAR
 };
 
 use std::fmt::Write;
@@ -78,8 +78,10 @@ impl LuaExpand for LuaModule {
         }
 
         for lua_enum in self.enums.iter() {
-            let (_, child_expand) = lua_enum.lua_expand(true);
+            let (child_global, child_expand) = lua_enum.lua_expand(true);
             let child_expand = add_tabs(child_expand, 1);
+
+            write!(&mut global, "{child_global}").unwrap();
             write!(&mut expanded, "{child_expand}").unwrap();
         }
 
@@ -112,14 +114,17 @@ impl LuaExpand for LuaModule {
 
 impl LuaExpand for LuaEnum {
     fn lua_expand(&self, inside_parent: bool) -> (String, String) {
-        let mut expanded = String::new();
+        let (mut global, mut expanded) = (String::new(), String::new());
 
         let name = &self.name;
 
         // First we write the doc string to our function, if it is present
         if let Some(ref docs) = self.docs {
+            dump_luau_documentation(&mut global, docs, "");
             dump_luau_documentation(&mut expanded, docs, "");
         }
+
+        writeln!(&mut global, "type {USERTYPE_CHAR}{name} = number").unwrap();
 
         // Depending on the nesting, luau function declarations aren't the same.
         // Global functions are declared directly as function {name}({named args}): {ret type},
@@ -138,8 +143,6 @@ impl LuaExpand for LuaEnum {
             writeln!(&mut expanded, "    {}: number,", var.name).unwrap();
         }
 
-        // let comma = if inside_parent { "," } else { "" };
-
         write!(&mut expanded, "}}").unwrap();
 
         if inside_parent {
@@ -149,7 +152,7 @@ impl LuaExpand for LuaEnum {
         writeln!(&mut expanded).unwrap();
         
 
-        (String::new(), expanded)
+        (global, expanded)
     }
 }
 
@@ -166,7 +169,8 @@ impl LuaExpand for LuaStruct {
             dump_luau_documentation(&mut global_ty, docs, "");
         }
         
-        writeln!(&mut global_ty, "declare extern type {USERDATA_CHAR}{name} with").unwrap();
+        println!("Generating enum type: {USERTYPE_CHAR}{name}");
+        writeln!(&mut global_ty, "declare extern type {USERTYPE_CHAR}{name} with").unwrap();
 
         for field in self.fields.iter() {
             let fname = field.name.clone();

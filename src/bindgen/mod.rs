@@ -20,7 +20,7 @@ mod types;
 mod utils;
 
 /// The char that will be used to diffirentiate between userdata types and tables
-pub(crate) const USERDATA_CHAR: &str = "u";
+pub(crate) const USERTYPE_CHAR: &str = "u";
 
 /// A collection of all mlua_bindgen items in a single structure
 pub struct ParsedFile {

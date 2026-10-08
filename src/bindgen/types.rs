@@ -18,7 +18,7 @@ use syn::{GenericArgument, Pat, PathArguments, Type};
 use crate::error::Error;
 
 use super::expand::LuaExpand;
-use super::USERDATA_CHAR;
+use super::USERTYPE_CHAR;
 
 type TypeMap<'a> = HashMap<&'a str, LuaType>;
 
@@ -217,7 +217,7 @@ impl std::fmt::Display for LuaType {
                 LuaType::Nil => "nil".to_owned(),
                 LuaType::Void => "()".to_owned(),
                 LuaType::Either((left, right)) => format!("{left} | {right}"),
-                LuaType::Custom(ty) => format!("{USERDATA_CHAR}{}", ty.clone()),
+                LuaType::Custom(ty) => format!("{USERTYPE_CHAR}{}", ty.clone()),
                 LuaType::Tuple(tys) => {
                     if tys.len() == 1 {
                         format!("({})", tys[0])
@@ -638,7 +638,7 @@ impl<'a> LuaFile<'a> {
             }
 
             if !inner_expanded.is_empty() {
-                let _ = writeln!(&mut src, "{inner_expanded}").unwrap();
+                let _ = writeln!(&mut src, "{inner_expanded}");
             }
         }
 
