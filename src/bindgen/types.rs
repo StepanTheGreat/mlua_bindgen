@@ -51,6 +51,8 @@ fn type_map<'a>() -> TypeMap<'a> {
         LuaType::Thread => (Thread),
         LuaType::Userdata => (AnyUserData, LightUserData, UserDataRef, UserDataRefMut),
         LuaType::Function => (Function),
+        LuaType::Buffer => (Buffer),
+        LuaType::Vector => (Vector),
         LuaType::Void => (()),
         LuaType::Any => (Value)
     }
@@ -78,6 +80,8 @@ pub enum LuaType {
     Either((Box<LuaType>, Box<LuaType>)),
     /// Tuples can only be used as return types
     Tuple(Vec<LuaType>),
+    Buffer,
+    Vector,
     Error,
     Table,
     Thread,
@@ -208,6 +212,8 @@ impl std::fmt::Display for LuaType {
                 LuaType::Table => "{any: any}".to_owned(),
                 LuaType::Thread => "thread".to_owned(),
                 LuaType::Userdata => "userdata".to_owned(),
+                LuaType::Buffer => "buffer".to_owned(),
+                LuaType::Vector => "vector".to_owned(),
                 LuaType::Nil => "nil".to_owned(),
                 LuaType::Void => "()".to_owned(),
                 LuaType::Either((left, right)) => format!("{left} | {right}"),

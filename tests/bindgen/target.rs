@@ -125,7 +125,7 @@ mod inner {
 
     /// Adds something to a global counter
     #[mlua_bindgen]
-    pub fn do_something(_: &mlua::Lua, what: u32) -> f32 {
+    pub fn do_something(_: &mlua::Lua, one: mlua::Buffer, two: mlua::Vector) -> f32 {
         Ok(0.75)
     }
 }
