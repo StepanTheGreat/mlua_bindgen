@@ -53,5 +53,15 @@ pub fn expand_enum(input: TokenStream2, item: ItemEnum) -> TokenStream2 {
                 }
             }
         }
+
+        impl mlua::FromLua for #name {
+            fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
+                let discriminant = value.as_usize()
+                    .ok_or(mlua::Error::runtime("Invalid enum discriminant type"))?;
+
+                Self::from_usize(discriminant)
+                    .ok_or(mlua::Error::runtime("Invalid enum discriminant value"))
+            }
+        }
     }
 }

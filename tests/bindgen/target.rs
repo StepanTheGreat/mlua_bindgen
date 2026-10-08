@@ -225,7 +225,7 @@ mod main {
 
     /// Should return a table of strings
     #[mlua_bindgen]
-    pub fn do_something_better(_: &mlua::Lua, what: u32, other: String) -> [String; 3] {
+    pub fn do_something_better(_: &mlua::Lua, what: GreatEnum, other: String) -> [String; 3] {
         Ok(["".to_owned(), "".to_owned(), "".to_owned()])
     }
 
