@@ -6,7 +6,7 @@ use syn::{
     Block, FnArg, Ident, ImplItemFn, ItemFn, Pat, ReturnType, Type, TypeTuple, Visibility,
 };
 
-use crate::utils::{MLUA_IGNORE_BINDGEN_ATTR, contains_attr, parse_documentation, syn_error};
+use crate::utils::{MLUA_IGNORE_BINDGEN_ATTR, contains_attr, parse_documentation_attributes, syn_error};
 
 pub struct CommonFuncInfo {
     pub ident: Ident,
@@ -33,7 +33,7 @@ impl CommonFunc for ImplItemFn {
             block: self.block,
             ret_ty: self.sig.output,
             args: self.sig.inputs,
-            docs: parse_documentation(&self.attrs)
+            docs: parse_documentation_attributes(&self.attrs)
         }
     }
 }
@@ -47,7 +47,7 @@ impl CommonFunc for ItemFn {
             block: *self.block,
             ret_ty: self.sig.output,
             args: self.sig.inputs,
-            docs: parse_documentation(&self.attrs)
+            docs: parse_documentation_attributes(&self.attrs)
         }
     }
 }

@@ -1,12 +1,7 @@
 //! Lua types defined as structures
 
 use shared::{
-    enums::ParsedEnum,
-    funcs::ParsedFunc,
-    impls::{FieldKind, ParsedImpl},
-    mods::{ModuleItem, ModulePath, ParsedModule},
-    utils::{remove_lua_prefix, LastPathIdent},
-    ToTokens,
+    ToTokens, aliases::ParsedAlias, enums::ParsedEnum, funcs::ParsedFunc, impls::{FieldKind, ParsedImpl}, mods::{ModuleItem, ModulePath, ParsedModule}, utils::{LastPathIdent, remove_lua_prefix},
 };
 use std::{
     collections::HashMap,
@@ -528,6 +523,28 @@ impl LuaEnum {
     }
 }
 
+/// A simple alias that maps our rust type to a custom luau type definition
+pub struct LuaAlias {
+    pub name: String,
+    pub docs: ItemDoc,
+    pub alias: String
+}
+
+impl LuaAlias {
+    pub fn from_parsed(parsed: ParsedAlias) -> Result<Self, Error> {
+        let name = parsed.ident.to_string();
+        let name = remove_lua_prefix(name);
+        let docs = parsed.docs;
+        let alias = parsed.alias;
+
+        Ok(Self {
+            name,
+            docs,
+            alias
+        })
+    }
+}
+
 /// Just an item that contains module name. It doesn't own anything, lua items describe its relationship
 /// with it using the [`ItemParent`] attribute.
 pub struct LuaModule {
@@ -540,6 +557,7 @@ pub struct LuaModule {
     pub funcs: Vec<LuaFunc>,
     pub impls: Vec<LuaStruct>,
     pub enums: Vec<LuaEnum>,
+    pub aliases: Vec<LuaAlias>
 }
 
 impl LuaModule {
@@ -551,6 +569,7 @@ impl LuaModule {
         let mut funcs = Vec::new();
         let mut impls = Vec::new();
         let mut enums = Vec::new();
+        let mut aliases = Vec::new();
 
         for item in parsed.items {
             match item {
@@ -562,6 +581,9 @@ impl LuaModule {
                 }
                 ModuleItem::Impl(imp) => {
                     impls.push(LuaStruct::from_parsed(imp)?);
+                },
+                ModuleItem::Alias(alias) => {
+                    aliases.push(LuaAlias::from_parsed(alias)?);
                 }
             }
         }
@@ -575,6 +597,7 @@ impl LuaModule {
             funcs,
             impls,
             enums,
+            aliases
         })
     }
 
@@ -634,11 +657,11 @@ impl<'a> LuaFile<'a> {
             let (global_expanded, inner_expanded) = item.lua_expand(false);
 
             if !global_expanded.is_empty() {
-                let _ = writeln!(&mut src, "{global_expanded}");
+                let _ = write!(&mut src, "{global_expanded}");
             }
 
             if !inner_expanded.is_empty() {
-                let _ = writeln!(&mut src, "{inner_expanded}");
+                let _ = write!(&mut src, "{inner_expanded}");
             }
         }
 

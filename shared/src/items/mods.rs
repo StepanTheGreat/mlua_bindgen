@@ -1,10 +1,11 @@
 use std::collections::HashSet;
 
+use quote::ToTokens;
 use syn::{Ident, Item, ItemMod, Path, Visibility};
 
-use crate::utils::{
-    ItemAttribute, ItemAttributes, LastPathIdent, MLUA_BINDGEN_ATTR, MLUA_IGNORE_BINDGEN_ATTR, ToIdent, contains_attr, parse_documentation, syn_error
-};
+use crate::{aliases::{ParsedAlias, parse_alias}, utils::{
+    ItemAttribute, ItemAttributes, LastPathIdent, MLUA_BINDGEN_ATTR, MLUA_IGNORE_BINDGEN_ATTR, ToIdent, contains_attr, parse_attributes, parse_documentation_attributes, syn_error
+}};
 
 use super::{
     enums::{parse_enum, ParsedEnum},
@@ -20,6 +21,7 @@ pub enum ModuleItem {
     Fn(ParsedFunc),
     Enum(ParsedEnum),
     Impl(ParsedImpl),
+    Alias(ParsedAlias),
 }
 
 /// Basically a path, but for modules. It simplifies prefix management and other stuff
@@ -90,7 +92,8 @@ impl ParsedModule {
             match mod_item {
                 ModuleItem::Enum(mod_enum) => !mod_enum.bindgen_ignore,
                 ModuleItem::Fn(mod_fn) => !mod_fn.bindgen_ignore,
-                ModuleItem::Impl(mod_impl) => !mod_impl.bindgen_ignore
+                ModuleItem::Impl(mod_impl) => !mod_impl.bindgen_ignore,
+                ModuleItem::Alias(mod_alias) => !mod_alias.bindgen_ignore
             }
             // TODO: Clean the impl blocks as well, as they can contain bindgen_ignore items
         });
@@ -114,7 +117,7 @@ pub fn parse_mod(
     let mut post_init_func = None;
     let bindgen_ignore = contains_attr(&item.attrs, MLUA_IGNORE_BINDGEN_ATTR);
 
-    let docs = parse_documentation(&item.attrs);
+    let docs = parse_documentation_attributes(&item.attrs);
 
     let mut included = Vec::new();
     // Iterate over all attributes in the list.
@@ -127,6 +130,7 @@ pub fn parse_mod(
             ItemAttribute::Preserve => {}
             // TODO
             ItemAttribute::BindgenIgnore => {}
+            ItemAttribute::Alias(_) => {}
             ItemAttribute::PostInitFunc(path) => post_init_func = Some(path),
         }
     }
@@ -151,7 +155,8 @@ pub fn parse_mod(
     // we add their module registration code to the exports.
     if let Some((_, mod_items)) = item.content {
         // TODO: Parsing module items for macros is expensive and useless.
-        // TODO: Make a simplified version, where only the name get passed.
+        // TODO: Make a simplified version, where only the name gets passed.
+
         for mod_item in mod_items {
             let new_item = match mod_item {
                 Item::Fn(mod_fn) => {
@@ -184,6 +189,29 @@ pub fn parse_mod(
                         parse_impl(mod_impl)?
                     } else {
                         ParsedImpl::from_ty(*mod_impl.self_ty)
+                    })
+                },
+                Item::Type(mod_type) => {
+
+                    // The logic here is terrible, but what we're doing is parsing type aliases and trying to extract inner #[mlua_bindgen(...)]
+                    // attributes. Because this is the only module type that utilizes inner macro attributes, we're performing stupid conversions
+                    // from parsed attribute metas back to token streams, to parse them back into mlua_bindgen item attributes. Horrible.
+
+                    let bindgen_attr = mod_type.attrs.iter().filter_map(|attr| {
+                        if attr.path().is_ident(MLUA_BINDGEN_ATTR) {
+                            Some(attr)
+                        } else {
+                            None
+                        }
+                    }).last();
+
+                    let bindgen_attr = if let Some(attrs) = bindgen_attr { attrs } else { continue };
+                    let bindgen_attr_values = bindgen_attr.meta.require_list()?.tokens.clone();
+
+                    ModuleItem::Alias(if parse_items {
+                        parse_alias(mod_type, parse_attributes(bindgen_attr_values)?)?
+                    } else {
+                        ParsedAlias::from_ident(mod_type.ident)
                     })
                 }
                 Item::Mod(mod_mod) => return Err(syn_error(

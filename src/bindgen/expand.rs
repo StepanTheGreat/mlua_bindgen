@@ -1,5 +1,7 @@
 //! Everything related to expanding (i.e. transforming rust structures into luau source code strings)
 
+use crate::bindgen::types::LuaAlias;
+
 use super::{
     types::{LuaEnum, LuaFunc, LuaModule, LuaStruct},
     utils::add_tabs,
@@ -42,7 +44,7 @@ impl LuaExpand for LuaFunc {
         if inside_parent {
             writeln!(&mut expanded, "{name}: ({args}) -> {ret_ty},")
         } else {
-            writeln!(&mut expanded, "declare function {name}({args}): {ret_ty}\n")
+            writeln!(&mut expanded, "declare function {name}({args}): {ret_ty}")
         }.unwrap();
 
         (String::new(), expanded)
@@ -68,13 +70,26 @@ impl LuaExpand for LuaModule {
         if !inside_parent {
             write!(&mut expanded, "declare ").unwrap();
         }
-        writeln!(&mut expanded, "{name}: {{").unwrap();
+        writeln!(&mut expanded, "{name}: {{\n").unwrap();
+
+        for lua_alias in self.aliases.iter() {
+            let (child_global, _) = lua_alias.lua_expand(true);
+            write!(&mut global, "{child_global}").unwrap();
+        }
 
         for lua_impl in self.impls.iter() {
             let (child_global, child_expand) = lua_impl.lua_expand(true);
             let child_expand = add_tabs(child_expand, 1);
-            write!(&mut global, "{child_global}").unwrap();
-            write!(&mut expanded, "{child_expand}").unwrap();
+
+            // Can be empty
+            if !child_global.is_empty() {
+                write!(&mut global, "{child_global}").unwrap();
+            }
+
+            // Can be empty
+            if !child_expand.is_empty() {
+                write!(&mut expanded, "{child_expand}").unwrap();
+            }
         }
 
         for lua_enum in self.enums.iter() {
@@ -88,15 +103,19 @@ impl LuaExpand for LuaModule {
         for lua_func in self.funcs.iter() {
             let (_, child_expand) = lua_func.lua_expand(true);
             let child_expand = add_tabs(child_expand, 1);
+
             write!(&mut expanded, "{child_expand}").unwrap();
         }
 
         for lua_mod in self.mods.iter() {
             let (child_global, child_expand) = lua_mod.lua_expand(true);
             let child_expand = add_tabs(child_expand, 1);
+
+            // Can be empty
             if !child_global.is_empty() {
                 write!(&mut global, "{child_global}").unwrap();
             }
+
             write!(&mut expanded, "{child_expand}").unwrap();
         }
 
@@ -106,7 +125,7 @@ impl LuaExpand for LuaModule {
             write!(&mut expanded, ",").unwrap();
         }
 
-        writeln!(&mut expanded).unwrap();
+        writeln!(&mut expanded, "\n").unwrap();
 
         (global, expanded)
     }
@@ -151,6 +170,25 @@ impl LuaExpand for LuaEnum {
 
         writeln!(&mut expanded).unwrap();
         
+
+        (global, expanded)
+    }
+}
+
+impl LuaExpand for LuaAlias {
+    fn lua_expand(&self, _inside_parent: bool) -> (String, String) {
+        let (mut global, expanded) = (String::new(), String::new());
+
+        let name = &self.name;
+        let alias = &self.alias;
+
+        // First we write the doc string to our function, if it is present
+        if let Some(ref docs) = self.docs {
+            dump_luau_documentation(&mut global, docs, "");
+        }
+
+        // Add our type definition into the global scope
+        writeln!(&mut global, "type {USERTYPE_CHAR}{name} = {alias}").unwrap();
 
         (global, expanded)
     }

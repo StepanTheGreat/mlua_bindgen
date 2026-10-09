@@ -3,6 +3,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use shared::utils::{parse_attributes, parse_item, syn_error, ItemKind};
 use syn::Item;
 
+mod alias;
 mod enums;
 mod funcs;
 mod impls;
@@ -11,8 +12,9 @@ mod utils;
 
 use enums::expand_enum;
 use funcs::expand_fn;
-use impls::expand_impl;
 use mods::expand_mod;
+use alias::expand_alias;
+use impls::expand_impl;
 
 /// # mlua_bindgen
 /// A generative attribute macro and also bindgen marker that can transform rust items (like impl blocks/functions) into mlua acceptible structures.
@@ -170,6 +172,7 @@ pub fn mlua_bindgen(attr: TokenStream, input: TokenStream) -> TokenStream {
         ItemKind::Fn(item) => expand_fn(item),
         ItemKind::Enum(item) => expand_enum(input, item),
         ItemKind::Mod(item) => expand_mod(attrs, input, item),
+        ItemKind::Type(item) => expand_alias(input, item, attrs),
         ItemKind::Unsupported(item) => {
             // Giving some useful tips
             let msg = match item {

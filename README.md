@@ -155,6 +155,25 @@ lua.load('
 //
 ```
 
+### Aliases (bindgen)
+```rust
+#[mlua_bindgen(alias = "{[string]: number}")]
+type MyStringNumberMap = mlua::Table;
+
+#[mlua_bindgen]
+fn analyze(_: &mlua::Lua, map: MyStringNumberMap) {
+   Ok(())
+}
+```
+
+Gets translated to
+
+```lua
+type uMyStringNumberMap = {[string]: number}
+
+function analyze(map: uMyStringNumberMap)
+```
+
 ### CLI tool
 You can install the project with cargo and directly generate luau bindings from your own rust source directories.
 `mlua_bindgen ./src bindings.d.luau`

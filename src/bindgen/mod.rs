@@ -130,6 +130,7 @@ impl ParsedFile {
         }
 
         // Now we remove all the main module items into the main file instead
+        lua_file.add_items(main_mod.aliases);
         lua_file.add_items(main_mod.enums);
         lua_file.add_items(main_mod.funcs);
         lua_file.add_items(main_mod.impls);

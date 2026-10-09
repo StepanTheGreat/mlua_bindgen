@@ -1,9 +1,9 @@
 use std::fmt::Display;
 
-use proc_macro2::{TokenStream as TokenStream2, TokenTree};
+use proc_macro2::TokenStream as TokenStream2;
 use quote::ToTokens;
 use syn::{
-    Expr, ExprArray, Ident, Item, ItemEnum, ItemFn, ItemImpl, ItemMod, Meta, Token, parse::Parse, parse2, spanned::Spanned, token::Comma
+    Expr, ExprArray, Ident, Item, ItemEnum, ItemFn, ItemImpl, ItemMod, ItemType, Lit, Meta, Token, parse::Parse, parse2, spanned::Spanned, token::Comma
 };
 
 pub const MLUA_BINDGEN_ATTR: &str = "mlua_bindgen";
@@ -18,6 +18,7 @@ pub enum ItemKind {
     Fn(ItemFn),
     Mod(ItemMod),
     Enum(ItemEnum),
+    Type(ItemType),
     /// While
     Unsupported(Item),
 }
@@ -32,6 +33,7 @@ pub fn parse_item(input: TokenStream2) -> ItemKind {
         Item::Fn(item) => ItemKind::Fn(item),
         Item::Enum(item) => ItemKind::Enum(item),
         Item::Mod(item) => ItemKind::Mod(item),
+        Item::Type(item) => ItemKind::Type(item),
         _ => ItemKind::Unsupported(item),
     }
 }
@@ -62,6 +64,8 @@ pub enum ItemAttribute {
     /// Tells the macro to call a post-init function under provided path before returning a module table.
     /// Useful if you need to manually modify the table.
     PostInitFunc(syn::Path),
+    /// This type is an alias to a lua type. Only useful in bindgen.
+    Alias(String)
 }
 
 impl Parse for ItemAttributes {
@@ -117,6 +121,23 @@ impl Parse for ItemAttributes {
                         "Expected a function path to a post_init function",
                     ));
                 }
+            } else if ident == "alias" {
+                //? alias = "my_lua_alias"
+
+                // Parse the `=` sign
+                input.parse::<Token![=]>()?;
+
+                // Parse the string value after it
+                let lit = input.parse::<Lit>()?;
+
+                if let Lit::Str(s) = lit {
+                    ItemAttribute::Alias(s.value()) 
+                } else {
+                    return Err(syn_error(
+                        lit,
+                        "Expected a string type alias value"
+                    ));
+                }
             } else if ident == "main" {
                 //? main
 
@@ -133,8 +154,8 @@ impl Parse for ItemAttributes {
                 ));
             } else {
                 return Err(syn::Error::new_spanned(
-                    ident,
-                    "Unknown keyword. Only `main`, `preserve` and `include` can be used",
+                    &ident,
+                    format!("Unknown keyword `{}`. Only `main`, `preserve` and `include` can be used", ident),
                 ));
             };
 
@@ -179,30 +200,61 @@ pub fn contains_attr(attrs: &[syn::Attribute], needed: &str) -> bool {
     false
 }
 
-/// Extract documentation from a list of attributes into a single string
-pub fn parse_documentation(attrs: &[syn::Attribute]) -> Option<String> {
-    let mut out = None;
-    
+/// Extract a string value from a name-value pair.
+/// 
+/// Example:
+/// `#[doc = "this_value"]`
+/// will extract 
+/// "this_value" into a resulting string
+fn get_meta_string_value(meta: &Meta) -> Option<String> {
+    match meta {
+        Meta::NameValue(name_value) => {
+            let mut s = String::new();
+
+            // Extract the quote
+            let qs = name_value.value.to_token_stream().to_string();
+
+            // Make sure that it has enough characters
+            if qs.len() > 2 {
+
+                // Only push non-edge characters
+                s.push_str(&qs[1..qs.len()-1]);
+            }
+
+            Some(s)
+        },
+        _ => None
+    }
+}
+
+/// Iterate over all attributes, scan for meta items like
+/// `#[key = "value"]`, and extract their values (in our case `"value"`) into an output list
+pub fn parse_attribute_values(attrs: &[syn::Attribute], key: &str) -> Option<Vec<String>> {
+    let mut ret = None;
+
     for attr in attrs {
-        if attr.path().is_ident("doc") {
-            if let Meta::NameValue(name_value) = &attr.meta {
-                let s = out.get_or_insert(String::new());
-
-                // Extract the quote
-                let qs = name_value.value.to_token_stream().to_string();
-
-                // Make sure that it has enough characters
-                if qs.len() > 2 {
-
-                    // Only push non-edge characters
-                    s.push_str(&qs[1..qs.len()-1]);
-                    s.push('\n');
-                }
+        if attr.path().is_ident(key) {
+            if let Some(s) = get_meta_string_value(&attr.meta) {
+                ret.get_or_insert(Vec::new())
+                    .push(s);
             }
         }
     }
 
-    out
+    ret
+}
+
+/// Extract documentation from a list of attributes into a single string
+pub fn parse_documentation_attributes(attrs: &[syn::Attribute]) -> Option<String> {
+    let docs = parse_attribute_values(attrs, "doc")?;
+    let mut out = String::new();
+
+    for doc in docs {
+        out.push_str(&doc);
+        out.push('\n');
+    }
+
+    Some(out)
 }
 
 /// A trait for converting types into the Ident token

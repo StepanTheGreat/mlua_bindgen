@@ -1,6 +1,6 @@
 use syn::{Expr, Ident, ItemEnum, Lit};
 
-use crate::utils::{MLUA_IGNORE_BINDGEN_ATTR, contains_attr, parse_documentation, syn_error};
+use crate::utils::{MLUA_IGNORE_BINDGEN_ATTR, contains_attr, parse_documentation_attributes, syn_error};
 
 pub type LuaVariantType = usize;
 
@@ -37,12 +37,12 @@ pub fn parse_enum(item: ItemEnum) -> syn::Result<ParsedEnum> {
     let mut variants: Vec<ParsedEnumVariant> = Vec::new();
     let bindgen_ignore = contains_attr(&item.attrs, MLUA_IGNORE_BINDGEN_ATTR);
 
-    let docs = parse_documentation(&item.attrs);
+    let docs = parse_documentation_attributes(&item.attrs);
 
     let mut value: LuaVariantType = 0;
     for variant in item.variants.into_iter() {
         let vident = variant.ident;
-        let docs = parse_documentation(&variant.attrs);
+        let docs = parse_documentation_attributes(&variant.attrs);
 
         if let Some((_, ref expr)) = variant.discriminant {
             // Trying to avoid nesting here. Plus I'm over-checking errors to avoid undefined behaviour.

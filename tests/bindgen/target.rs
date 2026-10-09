@@ -123,6 +123,10 @@ mod inner {
         Num5 = 5
     }
 
+    /// A specific type of a table that we're expecting
+    #[mlua_bindgen(alias = "{[number]: number}")]
+    pub type MyInnerTableAlias = mlua::Table;
+
     /// Adds something to a global counter
     #[mlua_bindgen]
     pub fn do_something(_: &mlua::Lua, one: mlua::Buffer, two: mlua::Vector) -> f32 {
@@ -229,9 +233,13 @@ mod main {
         Ok(["".to_owned(), "".to_owned(), "".to_owned()])
     }
 
+    /// A specific type of a table that we're expecting
+    #[mlua_bindgen(alias = "{[string]: number}")]
+    pub type MyTableAlias = mlua::Table;
+
     /// The same
     #[mlua_bindgen]
-    pub fn do_something_better_vec(_: &mlua::Lua, what: u32, other: String) -> Vec<String> {
+    pub fn do_something_better_vec(_: &mlua::Lua, what: u32, other: MyTableAlias) -> Vec<String> {
         Ok(vec!["".to_owned(), "".to_owned(), "".to_owned()])
     }
 

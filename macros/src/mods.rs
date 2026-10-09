@@ -83,7 +83,9 @@ pub fn expand_mod(attrs: ItemAttributes, input: TokenStream2, item: ItemMod) -> 
                         #mod_name::#name::as_table(lua)?
                     )?;
                 }
-            }
+            },
+            // Aliases are bindgen only concepts
+            ModuleItem::Alias(_) => quote! {}
         });
     }
 
